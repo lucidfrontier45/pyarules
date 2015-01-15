@@ -1,0 +1,2878 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!-- ===================================================================
+  File    : apriori.html
+  Contents: Description of apriori program
+  Author  : Christian Borgelt
+==================================================================== -->
+<html>
+<head>
+<title>Apriori Documentation</title>
+
+<style type="text/css">
+body {
+  min-width:   480px;
+  background:  white;
+  color:       black;
+  font-family: sans-serif;
+  font-size:   10pt;
+}
+tt {
+  font-family: courier;
+  font-size:   10pt;
+}
+img {
+  border:      0px;
+}
+</style>
+</head>
+
+<!-- =============================================================== -->
+
+<body>
+<h1><a name="top">Apriori</a></h1>
+<h3>Find Frequent Item Sets and Association Rules
+    with the Apriori Algorithm</h3>
+
+<p>Note: This documentation refers to Apriori version 6.12
+and may not be compatible with other versions.<br>
+Call <tt>apriori</tt> without any options or arguments
+to check the actually supported options.</p>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3>Contents</h3>
+
+<ul style="list-style-type:disc">
+<li><a href="#intro">Introduction</a></li>
+<li><a href="#notions">Basic Notions</a>
+    <ul style="list-style-type:circle">
+    <li><a href="#items">Items and Transactions</a></li>
+    <li><a href="#suppset">Support of an Item Set</a></li>
+    <li><a href="#confrule">Confidence of an Association Rule</a></li>
+    <li><a href="#supprule">Support of an Association Rule</a></li>
+    </ul></li>
+<li><a href="#target">Target Types</a>
+    <ul style="list-style-type:circle">
+    <li><a href="#sets">Frequent Item Sets</a></li>
+    <li><a href="#closed">Closed Item Sets</a></li>
+    <li><a href="#maximal">Maximal Item Sets</a></li>
+    <li><a href="#generator">Generators/Free Item Sets</a></li>
+    <li><a href="#rules">Association Rules</a></li>
+    </ul></li>
+<li><a href="#invoke">Program Invocation</a></li>
+<li><a href="#options">Program Options</a></li>
+<li><a href="#input">Input Format</a>
+    <ul style="list-style-type:circle">
+    <li><a href="#transin">Format of the Transactions File</a></li>
+    <li><a href="#appearin">Format of the Item Appearances File</a></li>
+    </ul></li>
+<li><a href="#output">Output Format</a>
+    <ul style="list-style-type:circle">
+    <li><a href="#setout">Format of Frequent Item Sets</a></li>
+    <li><a href="#ruleout">Format of Association Rules</a></li>
+    <li><a href="#pspout">Format of a Pattern Spectrum</a></li>
+    </ul></li>
+<li><a href="#rulesel">Extended Rule Selection</a>
+    <ul style="list-style-type:circle">
+    <li><a href="#diff">Absolute Confidence Difference to Prior</a></li>
+    <li><a href="#lift">Lift Value (Confidence Quotient)</a></li>
+    <li><a href="#ld21">Absolute Difference of Lift Value to 1</a></li>
+    <li><a href="#quot">Difference of Lift Quotient to 1</a></li>
+    <li><a href="#cvct">Conviction (Inverse Lift for Negated Head)</a></li>
+    <li><a href="#cvctdiff">Absolute Difference of Conviction to 1</a></li>
+    <li><a href="#cvctquot">Difference of Conviction Quotient to 1</a></li>
+    <li><a href="#cert">Certainty Factor</a></li>
+    <li><a href="#chi2">Normalized &chi;<sup>2</sup>-Measure</a></li>
+    <li><a href="#pval">p-Value Computed from
+        &chi;<sup>2</sup>-Measure</a></li>
+    <li><a href="#yates">Normalized &chi;<sup>2</sup>-Measure
+        with Yates' correction</a></li>
+    <li><a href="#yatespval">p-Value Computed from Yates-corrected
+        &chi;<sup>2</sup>-Measure</a></li>
+    <li><a href="#info">Information Difference to Prior</a></li>
+    <li><a href="#fetprob">Fisher's Exact Test;
+        Table Probability</a></li>
+    <li><a href="#fetchi2">Fisher's Exact Test;
+        &chi;<sup>2</sup>-Measure</a></li>
+    <li><a href="#fetinfo">Fisher's Exact Test;
+        Information Gain</a></li>
+    <li><a href="#fetsupp">Fisher's Exact Test;
+        Support</a></li>
+    <li><a href="#behavior">Selection Behavior of Some Measures</a></li>
+    </ul></li>
+<li><a href="#setsel">Extended Item Set Selection</a>
+    <ul style="list-style-type:circle">
+    <li><a href="#logq">Binary Logarithm of Support Quotient</a></li>
+    <li><a href="#arem">Additional Rule Evaluation Measures</a></li>
+    <li><a href="#prune">Pruning with Additional Measures</a></li>
+    </ul></li>
+<li><a href="#tatree">Transactions as a Prefix Tree</a></li>
+<li><a href="#compopt">Compilation Options</a></li>
+<li><a href="#copying">Copying</a></li>
+<li><a href="#download">Download</a></li>
+<li><a href="#contact">Contact</a></li>
+</ul>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="intro">Introduction</a></h3>
+
+<p>Frequent item set mining and association rule induction
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>
+are powerful methods for so-called <i>market basket analysis</i>,
+which aims at finding regularities in the shopping behavior of
+customers of supermarkets, mail-order companies, online shops etc.
+With the induction of frequent item sets and association rules one
+tries to find sets of products that are frequently bought together,
+so that from the presence of certain products in a shopping cart one
+can infer (with a high probability) that certain other products are
+present. Such information, especially if expressed in the form of
+rules, can often be used to increase the number of items sold, for
+instance, by appropriately arranging the products on the shelves of
+a supermarket or on the pages of a mail-order catalog (they may, for
+example, be placed adjacent to each other in order to invite even
+more customers to buy them together) or by directly suggesting items
+to a customer, which may be of interest for him/her.</p>
+
+<p>An <i>association rule</i> is a rule like "If a customer buys wine
+and bread, he/she often buys cheese, too." It expresses an association
+between (sets of) <i>items</i>, which may be products of a supermarket
+or a mail-order company, special equipment options of a car, optional
+services offered by telecommunication companies etc. An association
+rule states that if we pick a customer at random and find out that
+he/she selected certain items (bought certain products, chose certain
+options etc.), we can be confident, quantified by a percentage, that
+he/she also selected certain other items (bought certain other products,
+chose certain other options etc.).</p>
+
+<p>Of course, we do not want just any association rules, we want
+"good" rules, rules that are "expressive" and "reliable". The standard
+measures to assess association rules are the <i>support</i> and the
+<i>confidence</i> of a rule, both of which are computed from the
+<i>support</i> of certain item sets. These notions are discussed in
+<a href="#notions">this section</a> in more detail. However, these
+standard criteria are often not sufficient to restrict the set of rules
+to the interesting ones. Therefore some additional rule evaluation
+measures are considered <a href="#select">this section</a>.</p>
+
+<p>The main problem of association rule induction is that there
+are so many possible rules. For example, for the product range of a
+supermarket, which may consist of several thousand different products,
+there are billions of possible association rules. It is obvious that
+such a vast amount of rules cannot be processed by inspecting each
+one in turn. Therefore efficient algorithms are needed that restrict
+the search space and check only a subset of all rules, but, if possible,
+without missing important rules. One such algorithm is the Apriori
+algorithm, which was developed by
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a> and
+which is implemented in a specific way in my Apriori program.</p>
+
+<p>For an overview of frequent item set mining in general and several
+specific algorithms (including Apriori), see the survey
+<a href="#Borgelt_2012">[Borgelt 2012]</a>. This page describes the
+Apriori implementation that I have been developing and improving since
+1996. It uses a prefix tree to organize the support counters and a
+doubly recursive procedure to process the transaction to count the
+support of candidate item sets. Some implementation details can be
+found in 
+<a href="#Borgelt_and_Kruse_2002">[Borgelt and Kruse 2002]</a>,
+<a href="#Borgelt_2003">[Borgelt 2003]</a>, and
+<a href="#Borgelt_2004">[Borgelt 2004]</a>.</p>
+
+<p>By the way: Earlier versions of my Apriori program
+are incorporated in the well-known data mining tool
+<a href="http://www.spss.com/Clementine/">Clementine</a>
+(Apriori version 1.8 in Clementine version 5.0,
+ Apriori version 2.7 in Clementine version 7.0), available from
+<a href="http://www.spss.com">SPSS</a>. Newer versions of Clementine
+still use my program, but I am not completely sure about the version
+number of the underlying Apriori program.</p>
+
+<p>This program (possibly in an earlier version) is also accessible
+through the 
+<a href="http://cran.r-project.org/web/packages/arules/index.html">arules package</a>
+of the
+<a href="http://www.r-project.org/">statistical software package R</a>.
+Furthermore it can be used through the Python interface provided
+by the <a href="http://www.borgelt.net/pyfim.html">PyFIM library</a>.</p>
+
+<p>A graphical user interface for this program
+(<tt>ARuleGUI</tt>), written in Java, is available
+<a href="http://www.borgelt.net/argui.html">here</a>.</p>
+
+<p>Enjoy,<br>
+<a href="http://www.borgelt.net">
+Christian Borgelt</a></p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="notions">Basic Notions</a></h3>
+
+<p>This section introduces the basic notions needed to talk about
+frequent item sets and association rules. These notions are
+<i>item</i>, <i>transaction</i>, <i>support</i> and <i>confidence</i>.
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="items">Items and Transactions</a></h4>
+
+<p>On an abstract level, the input to frequent item set mining
+and association rule induction consists of a bag or multiset of
+<i>transactions</i> that are defined over a set of <i>items</i>,
+sometimes called the <i>item base</i>. These items may be products,
+special equipment items, service options etc. For an abstract treatment
+it suffices that items have an identity, that is, it is possible to
+distinguish one item from another. The item base is the set of all
+considered items, for example, the set of all products that are sold
+by a given supermarket, mail-order company or online shop. Any subset
+of the item base is called an <i>item set</i>.</p>
+
+<p>A transaction is simply an item set and it represents, for example,
+the set of products bought by a customer. Since two or more customers
+may, in principle, buy the exact same set of products, we cannot model
+the whole of all "shopping baskets" or "shopping carts" (bought, say,
+in a given week) as a <i>set</i> of transactions, since in a set each
+element is unique. There are several solutions to this problem: one may,
+for example, model the whole of all transactions as a bag or multiset
+(a generalization of a set, which allows for multiple occurrences of
+the same element) or as a vector (where elements at different positions
+may be the same, but are still distinguished by their position), or by
+extending each transaction with a unique <i>transaction identifier</i>
+(or <i>tid</i> for short; note that the position of a transaction in
+a vector representation is an implicit transaction identifier). Still
+another possibility consists in using a standard <i>set</i> of (unique)
+transactions and assigning to each of them an occurrence counter. Here
+I will use the bag/multiset terminology, even though an occasional "set
+of transactions" may have slipped through. (This should always be read
+as "bag/multiset of transactions".)</p>
+
+<p>Note that the item base (the set of all considered items) is often
+not given explicitly, but only implicitly as the union of all given
+transactions. This is also the case for my Apriori program, which by
+default only takes a transaction file as input. However, it is also
+possible to specify the item base explicitly with an optional item
+appearances file (discussed in <a href="#appear">this section</a>).
+This can be useful, for example, if one wants to restrict the analysis
+to a subset of all items. It can also be used to specify that certain
+items should only appear in the antecedents or only in the consequents
+of reported association rules.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="suppset">Support of an Item Set</a></h4>
+
+<p>Let S be an item set and T the bag/multiset of all transactions
+under consideration. Then the <i>absolute support</i> (or simply the
+<i>support</i>) of the item set S is the number of transactions in T
+that contain S. Likewise, the <i>relative support</i> of S is the
+fraction (or percentage) of the transactions in T which contain S.</p>
+
+<p>More formally, let S be an item set and
+U&nbsp;=&nbsp;{&nbsp;X&isin;T&nbsp;|&nbsp;S&sube;t&nbsp;}
+the bag/multiset of all transactions in T that have S as a subset
+(i.e. contain all of the items in S and possibly some others). Then</p>
+
+<p>supp<sub>abs</sub>(S)&nbsp;=&nbsp;|U|
+&nbsp;=&nbsp;|{&nbsp;X&isin;T&nbsp;|&nbsp;S&sube;t&nbsp;}|</p>
+
+<p>is the absolute support of S and</p>
+
+<p>supp<sub>rel</sub>(S)&nbsp;=&nbsp;(|U|&nbsp;/&nbsp;|T|)&nbsp;*100%</p>
+
+<p>is the relative support of S. Here |U| and |T| are the number of
+elements in U and T, respectively.</p>
+
+<p>In a supermarket setting, the item set S may be a set like
+S&nbsp;=&nbsp;{&nbsp;bread, wine, cheese&nbsp;} and T may
+be the bag/multiset of all "baskets" or "carts" of products bought by
+the customers of a supermarket &ndash; in a given week if you like.
+U is the bag/multiset of all transactions in T that contain all items
+in S (and maybe also some other items). For example, if a customer
+buys the set X&nbsp;=&nbsp;{&nbsp;milk, bread, apples, wine, sausages,
+cheese, onions, potatoes&nbsp;}, then S is obviously a subset of X,
+hence X is in U. If there are 318 customers, each giving rise to one
+transaction, and 242 of these customers bought such a set X or a
+similar one that contains S, while the other customers bought sets
+of products that lacked at least one of the items in S, then
+supp<sub>abs</sub>(S)&nbsp;=&nbsp;242 and
+supp<sub>rel</sub>(S)&nbsp;=&nbsp;242/318&nbsp;=&nbsp;76.1%.</p>
+
+<p>The goal of frequent item set mining is to find all item sets
+(that is, all subsets of the item base) that occur in the given
+bag/multiset of transactions with at least a user-specified
+<i>minimum support</i> supp<sub>min</sub>. Such item sets are
+called <i>frequent item sets</i>.</p>
+
+<p>The default value for the minimum support in my Apriori program is
+10% (the percentage indicates implicitly that it refers to relative
+support). This value can be changed with the option <tt>-s</tt>.
+Note that the argument to this option is interpreted as a percentage
+if it is positive, but if it is negative, it is interpreted as an
+absolute number (number of transactions) rather than a percentage.
+That is, <tt>-s20</tt> means a minimum <i>relative</i> support of
+20%, while <tt>-s-20</tt> means a minimum <i>absolute</i> support
+of 20 transactions.</p>
+
+<p>Note that the default operation mode of my Apriori program is
+to find such frequent item sets. In order to find association rules,
+the target type has to be changed (see <a href="#target">here</a>).</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="confrule">Confidence of an Association Rule</a></h4>
+
+<p>If we search for association rules, we do not want just any
+association rules, but "good" association rules.
+To measure the quality of association rules,
+<a href="Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>,
+the inventors of the Apriori algorithm, introduced the
+<i>confidence</i> of a rule. The confidence of an association rule
+R&nbsp;=&nbsp;"X&nbsp;&rarr;&nbsp;Y" (with item sets X and Y) is the
+support of the set of all items that appear in the rule (here: the
+support of S&nbsp;=&nbsp;X&nbsp;&cup;&nbsp;Y) divided by the support
+of the antecedent (also called "if-part" or "body") of the rule
+(here X). That is,</p>
+
+<table>
+<tr><td>conf(R)&nbsp;=&nbsp;</td>
+    <td align="center">supp(X&nbsp;&cup;&nbsp;Y)<br><hr>
+                       supp(X)</td>
+</tr>
+</table>
+
+<p>(Note that it does not matter whether the confidence is computed
+from the absolute or the relative support of an item set, as long as
+the same support type is used in both the numerator and the denominator
+of the fraction.)</p>
+
+<p>More intuitively, the confidence of a rule is the number of cases in
+which the rule is correct relative to the number of cases in which it
+is applicable. For example, let
+R&nbsp;=&nbsp;"wine&nbsp;and&nbsp;bread&nbsp;&rarr;&nbsp;cheese".
+If a customer buys wine and bread (and maybe some other items), then
+the rule is applicable and it says that he/she can be expected to buy
+cheese. If he/she does not buy wine or does not buy bread or buys
+neither, then the rule is not applicable and thus (obviously) does
+not say anything about this customer.</p>
+
+<p>If the rule is applicable, it says that the customer can be expected
+to buy cheese. But he/she may or may not buy cheese, that is, the rule
+may or may not be correct (for this customer). Naturally, we are
+interested in how good the prediction of the rule is, that is, how
+often its prediction that the customer buys cheese is correct. The rule
+confidence measures this: it states the percentage of cases in which
+the rule is correct. It states this percentage relative to the number
+of cases in which the antecedent holds, since these are the cases in
+which the rule makes a prediction that can be true or false. If the
+antecedent does not hold, then the rule does not make any prediction,
+so these cases are excluded.</p>
+
+<p>Rules are reported as association rules if their confidence reaches
+or exceeds a given lower limit (minimum confidence; to be specified by
+a user). That is, we look for rules that have a high probability of
+being true: we look for "good" rules, which make correct (or very
+often correct) predictions. My Apriori program always uses a minimum
+confidence to select association rules. The default value for the
+minimum confidence is 80%. This value can be changed with the option
+<tt>-c</tt>. (Note that for the minimum confidence, the argument is
+always interpreted as a percentage. Negative values cause an error
+message, because there is no "absolute confidence".)</p>
+
+<p>In addition to the rule confidence, my Apriori program lets you
+select from several other (additional) rule evaluation measures, which
+are explained below, but it will also use rule confidence. If you want
+to rely entirely on some other measure, you can do so by setting the
+minimal rule confidence to zero. (Attention: If you have a large number
+of items, setting the minimal rule confidence to zero can result in
+<i>very</i> high memory consumption. Therefore: use this possibility
+with a lot of care, if at all.)</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="supprule">Support of an Association Rule</a></h4>
+
+<p>The support of association rules may cause some confusion,
+because I use this term in a different way than
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>
+do. For them, the support of an association rule
+"A&nbsp;and&nbsp;B&nbsp;&rarr;&nbsp;C" is the support of the set
+S&nbsp;=&nbsp;{&nbsp;A,&nbsp;B,&nbsp;C&nbsp;}. This may be fine if
+rule confidence is the only evaluation measure, but it causes problems
+if some other measure is used. For these other measures it is often
+much more appropriate to call the support of the antecedent of the
+association rule, that is, the support of
+X&nbsp;=&nbsp;{&nbsp;A,&nbsp;B&nbsp;} in the example above, the support
+of the association rule.</p>
+
+<p>The difference can also be stated in the following way: for
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>,
+the support of the rule is the (absolute or relative) number of cases
+in which the rule is correct (that is, in which the presence of the
+item C follows from the presence of the items A and B), whereas for
+me (and thus my Apriori program) the support of a rule is the
+(absolute or relative) number of cases in which it is applicable
+(that is, in which the antecedent of the rule holds), although in
+some of these cases it may be false (because only the items A and B
+are present, but the item C is missing).</p>
+
+<p>One reason for this choice, as already mentioned, is that the
+definition of
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>
+does not work well for evaluation measures other than rule confidence.
+This is explained in more detail below. Another reason is that I prefer
+the support of a rule to say something about the "statistical" support
+of a rule and its confidence, that is, from how many cases the
+confidence is computed in order to express how well founded the
+statement about the confidence is.</p>
+
+<p>Maybe an example will make this clearer. Suppose you have a die which
+you suspect to be biased. To test this hypothesis, you throw the die,
+say, a thousand times. 307 times the 6 turns up. Hence you assume that
+the die is actually biased, since the relative frequency is about 30%
+although for an unbiased die it should be around 17%. Now, what is
+the "statistical" support of this statement, that is, on how many
+experiments does it rest? Obviously it rests on all 1000 experiments
+and not only on the 307 experiments in which the 6 turned up. This is
+so, simply because you had to do 1000 experiments to find out that the
+relative frequency is around 30%, and not only the 307 in which a 6
+turned up (doing <i>only</i> these experiments is obviously
+impossible).</p>
+
+<p>Or suppose you are doing an opinion poll to find out about the
+acceptance of a certain political party, maybe with the usual question
+"If an election were held next Sunday ...?" You ask 2000 persons, of
+which 857 say that they would vote for the party you are interested in.
+What is the support of the assertion that this party would get around
+43% of all votes? It is the size of your sample, that is, all 2000
+persons, and not only the 857 that answered in the positive. Again you
+had to ask all 2000 people to find out about the percentage of 43%.
+Of course, you could have asked fewer people, say, 100, of which, say,
+43 said that they would vote for the party, but then your statement
+would be less reliable, because it is less "supported". The number of
+votes for the party could also be 40% or 50%, because of some random
+influences. Such deviations are much less likely, if you asked 2000
+persons, since then the random influences can be expected to cancel
+out.</p>
+
+<p>The rule support can be used to filter association rules by stating
+a lower bound for the support of a rule (minimum support). This is
+equivalent to saying that you are interested only in such rules that
+have a large enough statistical basis (since my Apriori program uses
+the term "support" in my interpretation and not in the one used by
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>.
+The default value for this support limit is 10%. It can be changed
+with the option <tt>-s</tt>. Note that the argument, if positive,
+is interpreted as a percentage. If, however, the given argument is
+negative, it is interpreted as an absolute number (number of
+transactions) rather than a percentage.</p>
+
+<p>The minimum support is combined with the minimum confidence to
+filter association rules. That is, my Apriori program generates only
+association rules, the confidence of which is greater than or equal
+to the minimum confidence <i>and</i> the support of which is greater
+than or equal to the minimum support.</p>
+
+<p>Despite the above arguments in favor of my definition of the support
+of an association rule, a rule support compatibility mode is available
+(due to the overwhelming pervasiveness of the original definition).
+With the option <tt>-o</tt> the original rule support definition can be
+selected. In this case the support of an association rule is the support
+of the set with all items in the antecedent (also called "if-part" or
+"body") <i>and</i> the consequent (also called "then-part" or "head")
+of the association rule, that is, the support of an association rule
+as defined in
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="target">Target Types</a></h3>
+
+<p>An annoying problem in frequent item set mining is that the number of
+frequent item sets is often huge and thus the output can easily exceed
+the size of the transaction database to mine. In order to mitigate this
+problem, several restrictions of the set of frequent item sets have been
+suggested. These restrictions are covered by the target type.</p>
+
+<p>The target type, which can be selected via the option <tt>-t</tt>,
+is either frequent item sets (default, option <tt>-ts</tt>),
+closed item sets (option <tt>-tc</tt>), maximal item sets
+(option <tt>-tm</tt>), generators (also called free item sets,
+option <tt>-tg</tt>) or association rules (option <tt>-tr</tt>).</p>
+
+<p>More detailed information about the different target types
+of frequent item set mining can be found in the survey
+<a href="#Borgelt_2012">[Borgelt 2012]</a>.</p>
+
+<p>Note that association hyperedges, which were a separate target type
+in earlier versions of my Apriori program, are now covered by the
+target type of frequent item sets. In order to find association
+hyperedges, choose rule confidence as the additional evaluation
+measure (option <tt>-ec</tt>) and averaging as the aggregation mode
+(option <tt>-aa</tt>, see <a href="#arem">this section</a> for more
+explanations). (I am grateful to Bastien Duclaux for originally
+requesting the possibility to generate association hyperedges.)</p>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="sets">Frequent Item Sets (default, option -ts)</a></h4>
+
+<p>Often one only wants to find frequent item sets. That is, one wants
+to find all item sets with a support exceeding a certain threshold,
+the so-called <i>minimum support</i> supp<sub>min</sub>. For my
+Apriori program this is the default operation mode (since version
+4.36, earlier versions had association rules as the default mode).
+However, this mode can also be selected explicitly with the option
+<tt>-ts</tt>.</p>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="closed">Closed Item Sets (option -tc)</a></h4>
+
+<p>A frequent item set is called <i>closed</i> if no superset is
+frequent, that is, has a support exceeding the minimum support.
+Formally, an item set I is called closed iff</p>
+
+<p>&forall; J &sup; I: supp(J) &lt; supp(I).</p>
+
+<p>If the option <tt>-tc</tt> is given, the found frequent item sets
+are subsequently filtered and only the closed item sets are
+reported.</p>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="maximal">Maximal Item Sets (option -tm)</a></h4>
+
+<p>A frequent item set is called <i>maximal</i> if no superset
+the same support (or, in other words, if all supersets have a lower
+support). Formally, an item set I is called maximal iff</p>
+
+<p>&forall; J &sup; I: supp(J) &lt; supp<sub>min</sub>.</p>
+
+<p>If the option <tt>-tm</tt> is given, the found frequent item sets are
+subsequently filtered and only the maximal item sets are reported.</p>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="generator">Generators/Free Item Sets (option -tg)</a></h4>
+
+<p>A frequent item set is called a <i>generator</i> or <i>free</i>
+if no subset has the same support (or, in other words, if all subsets
+have a larger support). Formally, an item set I is called a generator
+iff</p>
+
+<p>&forall; J &sub; I: supp(J) &gt; supp(I)</p>
+
+<p>If the option <tt>-tg</tt> is given, the found frequent item sets
+are subsequently filtered and only the generators / free item sets
+are reported.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="rules">Association Rules (option -tr)</a></h4>
+
+<p>My Apriori program generates association rules if the the option
+<tt>-tr</tt> is given. Note, however, that it produces only association
+rules with a single item in the consequent (also called "then-part" or
+"head" of the rule). This restriction is due to the following
+considerations:</p>
+
+<p>In the first place, association rule mining usually produces too many
+rules even if one confines oneself to rules with only one item in the
+consequent. So why should one make the situation worse by allowing more
+than one item in the consequent? (It merely blows up the size of the
+output.)</p>
+
+<p>Secondly, I do not know any application in which rules with more
+than one item in the consequent are of any real use. The reason, in
+my opinion, is that such more complex rules add almost nothing to the
+insights about the data set. To understand this, consider the simpler
+rules that correspond to a rule with multiple items in the consequent,
+that is, rules having the same antecedent, but consequents with only
+single items from the consequent of the complex rule. All of these
+rules must necessarily be in the output, because neither their support
+(in my interpretation, see <a href="#supprule">this section</a>) nor
+their confidence can be less than that of the more complex rule.
+That is, if you have a rule A&nbsp;B&nbsp;&rarr;&nbsp;C&nbsp;D, you
+will necessarily also have the rules A&nbsp;B&nbsp;&rarr;&nbsp;C and
+A&nbsp;B&nbsp;&rarr;&nbsp;D in the output. Of course, these latter two
+rules together do <i>not</i> say the same as the more complex rule;
+they <i>do</i> contain additional information. However, what do you
+gain from the additional information the more complex rule gives you?
+How can you use it? And is this little extra information worth having
+to cope with a much bigger rule set? In my opinion, the answer is
+a clear <i>no</i>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="invoke"></a>Program Invocation</h3>
+
+<p>My Apriori implementation is a command line program that has to be
+called in a terminal or command window or from a shell script. If
+double-clicked in a file manager (e.g. in Microsoft Windows), it merely
+prints a usage message to a terminal/command window that is briefly
+opened and immediately closed again. This does not mean that the
+program does not work. In order to run the program, open a
+terminal/command window, change directory to where you stored
+the program, and then type an invocation command.</p>
+
+<p>The general syntax of the program invocation is</p>
+
+<p><tt>apriori [options] infile [outfile]</tt></p>
+
+<p>The first argument <tt>infile</tt>, which is mandatory, is the name
+of a file that contains the transactions to analyze. The format of
+this file is described in <a href="#transin">this section</a>. If
+instead of a file name a single minus sign "<tt>-</tt>" or an empty
+string <tt>""</tt> is given, the input is read from standard input
+rather than from a file.</p>
+
+<p>The second argument <tt>outfile</tt>, which is optional (as
+indicated by the brackets), is the name of a file to which the found
+frequent item sets are to be written. That it is optional is useful
+for benchmark tests, where the time it takes to write the output to
+a file can conceal the actual search time, or if only a pattern
+spectrum (number of found frequent item sets collected by size and
+(absolute) support; option <tt>-P</tt>) is to be found. The format
+in which frequent item sets are written to the output file is described
+in <a href="#setout">this section</a>. If instead of a file name a
+single minus sign "<tt>-</tt>" or an empty string <tt>""</tt> is
+given, the output is written to standard output rather than to a
+file.</p>
+
+<p>In addition to the input and output file several options can be
+given, all of which consist of a minus sign and a single letter.
+The full list of options can be found in the
+<a href="#options">next section</a>.</p>
+
+<p>Some options take a parameter. For example, the option <tt>-s</tt>,
+with which the minimum support is specified, takes a number as a
+parameter, which must follow the letter <tt>s</tt> without any
+separating space. A space between the option character and its
+parameter is only allowed if the parameter is a string, for example,
+a file name. (However, even in this case the parameter may follow
+the option letter directly.) If the parameter is a number or a
+single letter, it must follow the option letter directly.</p>
+
+<p>Options may be combined. For example,</p>
+
+<p><tt>apriori -s10m2n5 input output</tt></p>
+
+<p>means that the minimum support is 10% (option <tt>-s</tt>),
+the minimum number of items in an item set is 2 (option <tt>-m</tt>)
+and the maximum number of items in an item set is 5
+(option <tt>-n</tt>).</p>
+
+<p>Options may be specified
+anywhere on the command line, that is, before the input file name,
+in between the input and output file names, or after the output
+file name.</p>
+
+<p>If an option is given more than once, the last statement counts.
+That is, with</p>
+
+<p><tt>apriori -s10 -s20 input output</tt></p>
+
+<p>the minimum support is 20%, as the <tt>-s10</tt> is overwritten
+by the following <tt>-s20</tt>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="options"></a>Program Options</h3>
+
+<p>My Apriori implementation supports the following options<br>
+(a <tt>#</tt> after the option letter means that the option
+takes a parameter):</p>
+
+<table border=1 cellpadding=2 cellspacing=0>
+<tr><th>option</th><th>meaning</th><th>default</th></tr>
+<tr><td valign="top"><tt>-t#</tt></td>
+    <td>target type<br>
+        <tt>s</tt>: frequent item sets<br>
+        <tt>c</tt>: closed (frequent) item sets<br>
+        <tt>m</tt>: maximal (frequent) item sets<br>
+        <tt>g</tt>: (frequent) generators<br>
+        <tt>r</tt>: association rules</td>
+    <td valign="top"><tt>s</tt></td></tr>
+<tr><td valign="top"><tt>-m#</tt></td>
+    <td>minimum number of items per item set/association rule</td>
+    <td valign="top">1</td></tr>
+<tr><td valign="top"><tt>-n#</tt></td>
+    <td>maximum number of items per item set/association rule</td>
+    <td valign="top">no&nbsp;limit</td></tr>
+<tr><td valign="top"><tt>-s#</tt></td>
+    <td>minimum support of an item set<br>
+        positive: percentage of transactions<br>
+        negative: absolute number of transactions</td>
+    <td valign="top">10</td></tr>
+<tr><td valign="top"><tt>-S#</tt></td>
+    <td>maximum support of an item set<br>
+        positive: percentage of transactions<br>
+        negative: absolute number of transactions</td>
+    <td valign="top">100</td></tr>
+<tr><td valign="top"><tt>-o</tt></td>
+    <td>use original definition of the support of a rule (body & head)</td>
+    <td></td></tr>
+<tr><td valign="top"><tt>-c#</tt></td>
+    <td>minimum confidence of a rule as a percentage</td>
+    <td valign="top">80</td></tr>
+<tr><td valign="top"><tt>-e#</tt></td>
+    <td>additional evaluation measure<br>
+        frequent item sets:<br>
+        <tt>x</tt>: no measure<br>
+        <tt>b</tt>: binary logarithm of support quotient            (+)<br>
+        association rules:<br>
+        <tt>x</tt>: no measure<br>
+        <tt>o</tt>: rule support (original def.: body & head)       (+)<br>
+        <tt>c</tt>: rule confidence                                 (+)<br>
+        <tt>d</tt>: absolute confidence difference to prior         (+)<br>
+        <tt>l</tt>: lift value (confidence divided by prior)        (+)<br>
+        <tt>a</tt>: absolute difference of lift value to 1          (+)<br>
+        <tt>q</tt>: difference of lift quotient to 1                (+)<br>
+        <tt>v</tt>: conviction (inverse lift for negated head)      (+)<br>
+        <tt>e</tt>: absolute difference of conviction to 1          (+)<br>
+        <tt>r</tt>: difference of conviction quotient to 1          (+)<br>
+        <tt>z</tt>: certainty factor (relative confidence change)   (+)<br>
+        <tt>n</tt>: normalized &chi;<sup>2</sup> measure            (+)<br>
+        <tt>p</tt>: p-value from (unnormalized)
+                    &chi;<sup>2</sup> measure       (-)<br>
+        <tt>y</tt>: normalized &chi;<sup>2</sup> measure
+                    with Yates' correction (+)<br>
+        <tt>t</tt>: p-value from Yates-corrected
+                    &chi;<sup>2</sup> measure       (-)<br>
+        <tt>i</tt>: information difference to prior                 (+)<br>
+        <tt>g</tt>: p-value from G statistic/information difference (-)<br>
+        <tt>f</tt>: Fisher's exact test (table probability)         (-)<br>
+        <tt>h</tt>: Fisher's exact test (&chi;<sup>2</sup> measure) (-)<br>
+        <tt>m</tt>: Fisher's exact test (information gain)          (-)<br>
+        <tt>s</tt>: Fisher's exact test (support)                   (-)<br>
+        All measures for association rules are also applicable<br>
+        to item sets and are then aggregated over all possible<br>
+        association rules with a single item in the consequent.<br>
+        The aggregation mode can be set with the option <tt>-a#</tt>.<br>
+        Measures marked with (+) must meet or exceed the threshold,<br>
+        measures marked with (-) must not exceed the threshold<br>
+        in order for the rule or item set to be reported.</td>
+    <td valign="top">x</td></tr>
+<tr><td valign="top"><tt>-a#</tt></td>
+    <td>aggregation mode for evaluation measure<br>
+    <tt>x</tt>: no aggregation (use first value)<br>
+    <tt>m</tt>: minimum of individual measure values<br>
+    <tt>n</tt>: maximum of individual measure values<br>
+    <tt>a</tt>: average of individual measure values<br>
+    <tt>s</tt>: split item set into equal size subsets</td>
+    <td valign="top">x</td></tr>
+<tr><td valign="top"><tt>-d#</tt></td>
+    <td>threshold for additional evaluation measure<br>
+        (as a percentage)</td>
+    <td valign="top">10</td></tr>
+<tr><td valign="top"><tt>-z</tt></td>
+    <td>zero evaluation below expected support</td>
+    <td>evaluate all</td></tr>
+<tr><td valign="top"><tt>-p#</tt></td>
+    <td>(minimum size for) pruning with evaluation<br>
+       &lt;&nbsp;0: weak forward<br>
+       &gt;&nbsp;0: strong forward<br>
+       =&nbsp;0: backward pruning</td>
+    <td>no pruning</td></tr>
+<tr><td valign="top"><tt>-q#</tt></td>
+    <td>sort items w.r.t. their frequency<br>
+        0: do not sort<br>
+        1: ascending, -1: descending w.r.t. item frequency<br>
+        2: ascending, -2: descending w.r.t. transaction size sum</td>
+    <td valign="top">2</td></tr>
+<tr><td valign="top"><tt>-u#</tt></td>
+    <td>filter unused items from transactions<br>
+       =&nbsp;0: do not filter items w.r.t. usage in sets<br>
+       &lt;&nbsp;0: fraction of removed items for filtering<br>
+       &gt;&nbsp;0: take execution time ratio into account</td>
+    <td valign="top">0.01</td></tr>
+<tr><td valign="top"><tt>-x</tt></td>
+    <td>do not prune with perfect extensions</td>
+    <td valign="top">prune</td></tr>
+<tr><td valign="top"><tt>-y</tt></td>
+    <td>a-posteriori pruning of infrequent item sets</td>
+    <td valign="top"></td></tr>
+<tr><td valign="top"><tt>-T</tt></td>
+    <td>do not organize transactions as a prefix tree</td>
+    <td valign="top"></td></tr>
+<tr><td valign="top"><tt>-F#:#..</tt></td>
+    <td>support border for filtering item sets<br>
+       (list of minimum support values, one per item set size,<br>
+       starting at the minimum size, as given with option <tt>-m#</tt>)</td>
+    <td valign="top">none</td></tr>
+<tr><td valign="top"><tt>-R#</tt></td>
+    <td>read item selection/appearances from a file<br>
+        parameter: file name</td>
+    <td valign="top"></td></tr>
+<tr><td valign="top"><tt>-P#</tt></td>
+    <td>write a pattern spectrum to a file<br>
+        parameter: file name<br>
+        (only for frequent item sets, not for association rules)</td>
+    <td valign="top"></td></tr>
+<tr><td valign="top"><tt>-Z</tt></td>
+    <td>print item set statistics<br>
+        (number of item sets per size)</td>
+    <td valign="top"></td></tr>
+<tr><td valign="top"><tt>-g</tt></td>
+    <td>write output in scanable form<br>
+        (quote certain characters)</td>
+    <td valign="top"></td></tr>
+<tr><td valign="top"><tt>-h#</tt></td>
+    <td>record header  for output</td>
+    <td valign="top">""</td></tr>
+<tr><td valign="top"><tt>-k#</tt></td>
+    <td>item separator for output</td>
+    <td valign="top">" "</td></tr>
+<tr><td valign="top"><tt>-I#</tt></td>
+    <td>implication sign for association rules</td>
+    <td valign="top">" "</td></tr>
+<tr><td valign="top"><tt>-v#</tt></td>
+    <td>output format for item set information<br>
+        (changed to "<tt> (%a)</tt>" if parameter
+        of <tt>-s</tt> is negative)</td>
+    <td valign="top">"<tt> (%S)</tt>"<br>
+                     "<tt> (%a)</tt>"</td></tr>
+<tr><td valign="top"><tt>-l#</tt></td>
+    <td>sort item sets in output by their size
+        (default: no sorting)</td>
+    <td></td></tr>
+<tr><td valign="top"><tt>-w</tt></td>
+    <td>transaction weight in last field</td>
+    <td valign="top">only items</td></tr>
+<tr><td valign="top"><tt>-r#</tt></td>
+    <td>record/transaction separators</td>
+    <td valign="top">"<tt>\n</tt>"</td></tr>
+<tr><td valign="top"><tt>-f#</tt></td>
+    <td>field/item separators</td>
+    <td valign="top">"<tt> \t,</tt>"</td></tr>
+<tr><td valign="top"><tt>-b#</tt></td>
+    <td>blank characters</td>
+    <td valign="top">"<tt> \t\r</tt>"</td></tr>
+<tr><td valign="top"><tt>-C#</tt></td>
+    <td>comment characters</td>
+    <td valign="top">"<tt>#</tt>"</td></tr>
+<tr><td valign="top"><tt>-!</tt></td>
+    <td>print additional option information</td>
+    <td valign="top"></td></tr>
+</table>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="input">Input Format</a></h3>
+
+<h4><a name="transin">Format of the Transactions File</a></h4>
+
+<p>The transactions file has to be a (text) file structured by field
+and record separators and blanks. Record separators, not surprisingly,
+separate records, usually lines (since the default record separator
+is the newline character), field separators separate fields, usually
+words (since among the default field separators are the space and the
+tabulator, but also the comma). Blanks are used to fill fields, for
+example, to align them. In the transactions file each record must
+contain one transaction, i.e. a list of item identifiers, which are
+separated by field separators. An empty record is interpreted as an
+empty transaction. That is, it is counted for the total number of
+transactions, but does not count for the support of any item set other
+than the empty set. A transaction may contain the same item multiple
+times (that is, duplicate items do not raise an error), but this
+multiplicity is disregarded by the Apriori program. It only considers
+<i>whether</i> an item is contained in a transaction or not, <i>not</i>
+how many times an item is contained in a transaction.</p>
+
+<p>Example input files can be found in the directory <tt>apriori/ex</tt>
+in the source package. These files are used in the following to
+demonstrate how to use the command line options <tt>-r</tt>,
+<tt>-f</tt>, <tt>-b</tt> and <tt>-w</tt>. In addition, there are
+several conversion scripts (for Linux/Unix), with which different
+common input formats can be converted into the format required by
+the Apriori program.</p>
+
+<p>In the file <tt>test1.tab</tt> transactions are separated by newline
+characters (that is, each line of the file contains one transaction)
+and the items of a transaction are separated by spaces. That is, the
+file <tt>test1.tab</tt> looks like this:</p>
+
+<p><tt>
+a b c<br>
+a d e<br>
+b c d<br>
+a b c d<br>
+b c<br>
+a b d<br>
+d e<br>
+a b c d<br>
+c d e<br>
+a b c
+</tt></p>
+
+<p>As can be seen, there are ten transactions over the item base
+{a, b, c, d, e}, which contain between two and four items each.</p>
+
+<p>The file <tt>test1.tab</tt> is in the standard input format and
+hence it can be processed directly:</p>
+
+<p><tt>apriori test1.tab test1.out</tt></p>
+
+<p>Instead of spaces, tabulators may be used, and it is possible to mix
+spaces and tabulators. Note, however, that multiple consecutive white
+space characters (like multiple spaces or a space and a tabulator etc.)
+are interpreted as a single field separator. The reason is that by
+default spaces, tabulators and the carriage return character are
+interpreted as blank characters, which are removed when reading
+items. Hence only the first white space character after an item is
+interpreted as a field separator, all following white space characters
+are interpreted as blanks.</p>
+
+<p>Note also that commas are among the default field separators as well.
+That is, if the file <tt>test1.tab</tt> looked like this:</p>
+
+<p><tt>
+a,b,c<br>
+a,d,e<br>
+b,c,d<br>
+a,b,c,d<br>
+b,c<br>
+a,b,d<br>
+d,e<br>
+a,b,c,d<br>
+c,d,e<br>
+a,b,c
+</tt></p>
+
+<p>it could still be processed directly with the command stated
+above. You may also mix spaces, tabulators and commas.</p>
+
+<p>Unfortunately, though, the fact that commas are interpreted as field
+separators does not necessarily mean that CSV-files (where CSV stands
+for "comma separated values"), as they can be written by programs like
+Microsoft Excel, can be processed directly. The reason is that in a
+CSV-file all lines contain the same number of fields. That is, in
+CSV-format, the above input file would look like this (file
+<tt>test1.csv</tt> in directory <tt>apriori/ex</tt>):</p>
+
+<p><tt>
+a,b,c,<br>
+a,d,e,<br>
+b,c,d,<br>
+a,b,c,d<br>
+b,c,,<br>
+a,b,d,<br>
+d,e,,<br>
+a,b,c,d<br>
+c,d,e,<br>
+a,b,c,
+</tt></p>
+
+<p>Note the single and double commas at the end of most lines, which
+separate empty fields (as these transactions have fewer items than
+the longest transaction). While a single comma at the end of a line
+does not cause any problems and is simply ignored, two or more commas
+lead to an error message "<tt>item expected</tt>", because an item may
+not be an empty string. This can be fixed by declaring the comma a
+blank character (option <tt>-b</tt>). That is, the CSV-file can be
+processed with:</p>
+
+<p><tt>apriori -b, test1.csv test1.out</tt></p>
+
+<p>Note, however, that the characters given with the option <tt>-b</tt>
+replace the default blank characters. So if you still need spaces to be
+interpreted as blanks, they have to be specified as well:</p>
+
+<p><tt>apriori -b" ," test1.csv test1.out</tt></p>
+
+<p>In the file <tt>test2.tab</tt> the same transactions can be found,
+but several different field separators are used:</p>
+
+<p><tt>
+a,b,c<br>
+a,d,e<br>
+b.c.d<br>
+a,b,c,d<br>
+b:c<br>
+a,b,d<br>
+d,e<br>
+a,b,c,d<br>
+c;d;e<br>
+a,b,c
+</tt></p>
+
+<p>The file <tt>test2.tab</tt> can be processed by declaring different
+field separators with the option <tt>-f</tt>:</p>
+
+<p><tt>apriori -f",.;:" -l test2.tab test2.out</tt></p>
+
+<p>The file <tt>test3.tab</tt> has basically the same format as the
+file <tt>test1.tab</tt>, with the only difference that the last fields
+of each record states an (integer) transaction weight/multiplicity.</p>
+
+<p><tt>
+a b c 2<br>
+a d e 1<br>
+b c d 1<br>
+a b c d 2<br>
+b c 1<br>
+a b d 1<br>
+d e 1<br>
+c d e 1
+</tt></p>
+
+<p>This allows us to combine transactions, so that <tt>test2.tab</tt>
+has only 8 lines, while <tt>test1.tab</tt> has 10 lines, because the
+transactions <tt>a b c</tt> and <tt>a b c d</tt> occur twice. In order
+to instruct the Apriori program to interpret the last field of each record
+as such a weight/multiplicity, is has to be invoked with the option
+<tt>-w</tt>:</p>
+
+<p><tt>apriori -w test3.tab test3.out</tt></p>
+
+<p>The files <tt>test4.tab</tt> to <tt>test6.tab</tt> are in formats
+that may be common, but which cannot be processed directly with the
+Apriori program.</p>
+
+<p>In the file <tt>test4.tab</tt> each line contains a transaction
+identifier and an item, separated by a space (not shown because of
+the large number of lines). This file can be converted (on Linux/Unix
+systems) into the standard input format with the script
+<tt>tid2set</tt>, i.e., with</p>
+
+<p><tt>tid2set test4.tab x.tab</tt></p>
+
+<p>Note that this script sorts the input file (here: <tt>test4.tab</tt>)
+w.r.t. the transaction identifier, so that items belonging to the same
+transaction occupy consecutive lines/records. That is, the input need
+not already be sorted by transaction identifier, rather the script does
+this to make sure that the conversion works.</p>
+
+<p>In the file <tt>test5.tab</tt> the first line states the item names
+and the following lines contain flags <tt>T</tt> (true) and <tt>F</tt>
+(false) depending on whether the item is contained in the transaction
+represented by the line or not:</p>
+
+<p><tt>
+a b c d e<br>
+T T T F F<br>
+T F F T T<br>
+F T T T F<br>
+T T T T F<br>
+F T T F F<br>
+T T F T F<br>
+F F F T T<br>
+T T T T F<br>
+F F T T T<br>
+T T T F F
+</tt></p>
+
+<p>This format can be converted (on Linux/Unix systems) into the
+standard input format with the script <tt>flg2set</tt>, i.e., with</p>
+
+<p><tt>flg2set test5.tab x.tab</tt></p>
+
+<p>This script interprets <tt>T</tt>, <tt>t</tt>, and <tt>1</tt> as
+"true", that is, as indicators that the item corresponding to the
+column is contained in the transaction corresponding to the row,
+and any other entry as "false" (the item is not contained in the
+transaction).</p>
+
+<p>In the file <tt>test6.tab</tt> there is one item per line and
+transactions are separated by blank lines (not shown here because of
+the large number of lines). This format can be converted (on Linux/Unix
+systems) into the standard input format with the script
+<tt>row2set</tt>, i.e., with:</p>
+
+<p><tt>row2set test6.tab x.tab</tt></p>
+
+<p>Note that the file <tt>test6.tab</tt> could be processed directly
+if the transactions were not separated by a mere empty line (that is,
+two newline characters following each other), but if the separating
+(empty) line rather contained a special character, for example
+<tt>%</tt>. In this case the file can be processed directly with</p>
+
+<p><tt>apriori -r"%" -f"\n" -b"\n" test6.tab x.tab</tt></p>
+
+<p>The additional scripts <tt>tab2set</tt> and <tt>hdr2set</tt> convert
+tables with column numbers or column names into a format appropriate
+for the Apriori program. They are invoked in the same way as all other
+scripts discussed above, i.e., with</p>
+
+<p><tt>tab2set a.tab b.tab</tt></p>
+
+<p>or</p>
+
+<p><tt>hdr2set a.tab b.tab</tt></p>
+
+<p>where <tt>a.tab</tt> is the name of the input file and <tt>b.tab</tt>
+the name of the output file. The script <tt>tab2set</tt> replaces each
+table entry "x" of the input file by "Xi=x", where i is the column number
+(starting with 1).</p>
+
+<p>The script <tt>hdr2set</tt> reads the variable names from the first
+line of the input file and then replaces each table entry "x" by "X=x",
+where "X" is the variable name that was found in the corresponding
+column of the first line. These scripts are handy if you want to
+process tabular data by treating each table row as a transaction.</p>
+
+<p>Note that any input may also be read from standard input and any
+output may be sent to standard output, simply by specifying a
+'<tt>-</tt>' or an empty string <tt>""</tt> instead of a filename.
+For example (on a Linux/Unix system)</p>
+
+<p><tt>cat test1.tab | apriori - -</tt></p>
+
+<p>reads the transactions from standard input (where they are fed by
+the cat command) and writes the found frequent item sets directly to
+the terminal. They may be piped to any other program or script, since
+all other messages of the Apriori program are written to standard
+error.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="appearin"></a>Format of the Item Appearances File</h4>
+
+<p>In addition to an input file with the transactions and an output
+file for the found item sets, an item selection/appearances file may
+be passed to the Apriori program with the option <tt>-R</tt>.</p>
+
+<p>If the target is some kind of frequent item set, this file lists a
+selection of items that are to be included in the search, while any
+items not listed in this file are to be ignored. It can be seen as
+a specification of the item base for the search.</p>
+
+<p>The item selection file has to be a (text) file structured by the
+same field and record separators and blanks as the transactions file.
+Items may be listed in a single record or in multiple records; it does
+not matter in which record an item occurs. All that matters is whether
+an item occurs in the item selection file (then it is included in the
+search) or not (then it is ignored).</p>
+
+<p>If the target is association rules, the file specified with the
+option <tt>-R</tt> is used not only to specify which items are to be
+included in the search, but also in which part of reported association
+rules (antecedent and/or consequent) an item may appear.</p>
+
+<p>The first record, which must have one field, contains the default
+appearance to be used with all items not mentioned in the appearances
+file. The following records records state the appearance of specific
+items, one per record. The first field of these records states the
+item, the second the appearance indicator. If no appearance indicator
+is given, the item will be ignored (i.e. may appear neither in the
+antecedent (body) nor in the consequent (head) of a rule). Empty
+records are ignored.</p>
+
+<p>The following appearance indicators are recognized:</p>
+<ul style="list-style-type:circle">
+<li>item may appear only in rule antecedents (bodies):<br>
+    <tt>i in b body a ante antecedent</tt></li>
+<li>item may appear only in rule consequents (heads):<br>
+    <tt>o out h head c cons consequent</tt></li>
+<li>item may appear in rule antecedents (bodies)
+    or in rule consequents (heads):<br>
+    <tt>io inout bh b&amp;h ac a&amp;c both</tt></li>
+<li>item may appear neither in rule antecedents (bodies)
+    nor in rule consequents (heads):<br>
+    <tt>n neither none ign ignore -</tt></li>
+</ul>
+
+<p><b>Example 1:</b>
+Generate only rules with item "x" in the consequent.</p>
+<p><tt>in<br>
+       x out</tt></p>
+
+<p><b>Example 2:</b>
+Item "x" may appear only in rule consequents (head),
+item "y" only in rule antecedents (body);
+appearance of all other items is not restricted.</p>
+<p><tt>both<br>
+       x head<br>
+       y body</tt></p>
+
+<p>Providing no item appearances file is equivalent to an item
+appearances file containing only an indicator like "both", which
+does not restrict the appearance of any items.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="output"></a>Output Format</h3>
+
+<p>The output format for item sets and association rules is fairly
+flexible. Especially the output of the additional information about
+item sets and association rules (support, confidence etc.) can be
+formatted freely.</p>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="setout">Format of Frequent Item Sets</a></h4>
+
+<p>Each line of the output file contains one item set in the format</p>
+
+<p><tt>A&nbsp;B&nbsp;C&nbsp;[...]&nbsp;&lt;add.&nbsp;info&gt;</tt></p>
+
+<p>where A, B and C are item identifiers, and
+<tt>&lt;add.&nbsp;info&gt;</tt>
+is determined by the additional information output format (option
+<tt>-v</tt>). The item separator may be changed with the option
+<tt>-k</tt>. For example,</p>
+
+<p><tt>apriori -k, test1.tab test.out</tt></p>
+
+<p>produces output in the format</p>
+
+<p><tt>A,B,C,[...]&nbsp;&lt;add.&nbsp;info&gt;</tt></p>
+
+<p>Each output line may be preceded by a string that is specified
+with the option <tt>-h</tt> (record header for output).</p>
+
+<p>The output format for the additional rule information can be any
+string with the following special format symbols (similar to the
+style of the special format symbols of the <tt>printf</tt> function
+in the programming language C):</p>
+
+<table border=0 cellpadding=0 cellspacing=0>
+<tr><td>%%</td><td style="width:16px"></td>
+    <td>a percent sign</td></tr>
+<tr><td>%i</td><td></td>
+    <td>number of items (item set size)</td></tr>
+<tr><td>%a</td><td></td>
+    <td>absolute item set support</td></tr>
+<tr><td>%s</td><td></td>
+    <td>relative item set support as a fraction</td></tr>
+<tr><td>%S</td><td></td>
+    <td>relative item set support as a percentage</td></tr>
+<tr><td>%e</td><td></td>
+    <td>additional evaluation measure</td></tr>
+<tr><td>%E</td><td></td>
+    <td>additional evaluation measure as a percentage</td></tr>
+</table>
+
+<p>All format specifiers can be extended by an integer number between
+the percent sign and the defining character, which specifies the number
+of decimal digits to be printed (expect those that refer to integer
+numbers, like the number of items and the absolute support, for which
+such a number of digits is ignored). If no such number is given,
+(up to) six significant digits are reported.</p>
+
+<p>The default additional information output format is for item sets
+"<tt>  (%S)</tt>". That is, the relative support of the item set is
+printed with (up to) six significant digits, enclosed in parentheses.
+Two spaces separate the additional information from the last item
+in the set. The default format is automatically changed to
+"<tt>  (%a)</tt>" if the minimum support (option <tt>-s</tt>)
+is given as a negative number (absolute support), so that the output
+is consistent with the support threshold.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="ruleout"></a>Format of Association Rules</h4>
+
+<p>Each line of the output file describes one association rule
+in the format</p>
+
+<p><tt>C&nbsp;<-&nbsp;A&nbsp;B&nbsp;[...]&nbsp;&lt;add.&nbsp;info&gt;</tt></p>
+
+<p>where A, B and C are item identifiers, and
+<tt>&lt;add.&nbsp;info&gt;</tt>
+is determined by the additional information output format (option
+<tt>-v</tt>). The implication sign can be changed with the option
+<tt>-i</tt>. The item separator can be changed with the option
+<tt>-k</tt>. For example,</p>
+
+<p><tt>apriori -k, test1.tab test.out</tt></p>
+
+<p>produces output in the format</p>
+
+<p><tt>C&nbsp;<-&nbsp;A,B,&nbsp;[...]&nbsp;&lt;add.&nbsp;info&gt;</tt></p>
+
+<p>Each output line may be preceded by a string that is specified
+with the option <tt>-h</tt> (record header for output).</p>
+
+<p>The output format for the additional rule information can be any
+string with the following special format symbols (similar to the
+style of the special format symbols of the <tt>printf</tt> function
+in the programming language C):</p>
+<table border=0 cellpadding=0 cellspacing=0>
+<tr><td>%%</td><td style="width:16px"></td>
+    <td>a percent sign</td></tr>
+<tr><td>%a</td><td></td>
+    <td>absolute item set  support</td></tr>
+<tr><td>%s</td><td></td>
+    <td>relative item set  support as a fraction</td></tr>
+<tr><td>%S</td><td></td>
+    <td>relative item set  support as a percentage</td></tr>
+<tr><td>%b</td><td></td>
+    <td>absolute body set  support</td></tr>
+<tr><td>%x</td><td></td>
+    <td>relative body set  support as a fraction</td></tr>
+<tr><td>%X</td><td></td>
+    <td>relative body set  support as a percentage</td></tr>
+<tr><td>%h</td><td></td>
+    <td>absolute head item support</td></tr>
+<tr><td>%y</td><td></td>
+    <td>relative head item support as a fraction</td></tr>
+<tr><td>%Y</td><td></td>
+    <td>relative head item support as a percentage</td></tr>
+<tr><td>%c</td><td></td>
+    <td>rule confidence as a fraction</td></tr>
+<tr><td>%C</td><td></td>
+    <td>rule confidence as a percentage</td></tr>
+<tr><td>%l</td><td></td>
+    <td>lift value of a rule (confidence/prior)</td></tr>
+<tr><td>%L</td><td></td>
+    <td>lift value of a rule as a percentage</td></tr>
+<tr><td>%e</td><td></td>
+    <td>additional evaluation measure</td></tr>
+<tr><td>%E</td><td></td>
+    <td>additional evaluation measure as a percentage</td></tr>
+</table>
+
+<p>All format specifiers can be extended by an integer number between
+the percent sign and the defining character, which specifies the number
+of decimal digits to be printed (expect those that refer to integer
+numbers, like the number of items and the absolute support, for which
+such a number of digits is ignored). If no such number is given,
+(up to) six significant digits are reported.</p>
+
+<p>The default additional information output format for rules is
+"<tt>  (%X, %C)</tt>". That is, the relative support of the rule
+antecedent and the confidence of the rule are printed with (up to)
+six significant digits. These two values are separated by a comma
+and enclosed in parentheses. Two spaces separate the additional
+information from the last item in the rule.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="pspout">Format of a Pattern Spectrum</a></h4>
+
+<p>A pattern spectrum collects the number of found frequent item sets
+sub-divided by the size and the support of the item sets. Pattern
+spectra (together with surrogate data/randomization methods) can be
+useful to determine the statistical significance of found frequent
+item sets. Details can be found in the papers
+<a href="#Picado-Muino_et_al_2013">[Picado-Muino <i>et al.</i> 2013]</a>
+and <a href="#Torre_et_al_2013">[Torre <i>et al.</i> 2013]</a>.</p>
+
+<p>My Apriori implementation can be instructed to collect and write a
+pattern spectrum with the option <tt>-P</tt>, which takes the name
+of the file to which the patterns spectrum is to be written as a
+parameter.</p>
+
+<p>A pattern spectrum is written as a list of (size, support, count)
+triplets. The output file is a simple text file that contains one
+triplet per line, with the three numbers separated by spaces.
+For example, for the input file <tt>test1.tab</tt> (see
+<a href="#transin">this section</a>) the pattern spectrum is
+(with default option settings):</p>
+
+<p><tt>
+1 3 1<br>
+1 6 1<br>
+1 7 3<br>
+2 1 2<br>
+2 3 1<br>
+2 4 4<br>
+2 5 1<br>
+2 6 1<br>
+3 1 2<br>
+3 2 1<br>
+3 3 2<br>
+3 4 1<br>
+4 2 1
+</tt></p>
+
+<p>The first column contains the different sizes of item sets, the
+second column the difference support values, and the third column
+the number of item sets found for the corresponding (size, support)
+combination. For example, the sixth row indicates that there are
+four frequent item sets with two items and support 4. Note that in
+a pattern spectrum the support is always given as absolute support,
+that is, as a number of transactions.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="rulesel">Extended Rule Selection</a></h3>
+
+<p>If association rules are selected using a minimum confidence, the
+following problem arises: "Good" rules (rules that are often true)
+are not always "interesting" rules (rules that reveal something about
+the interdependence of the items). You certainly know the examples
+that are usually given to illustrate this fact. For instance,
+it is easy to discover in a medical database that the rule
+"pregnant&nbsp;&rarr;&nbsp;female" is true with a confidence of 100%.
+Hence it is a perfect rule, it never fails, but, of course, this is
+not very surprising. Although the measures explained below cannot deal
+with this problem (which is semantical), they may be able to improve
+the results in a related case.</p>
+
+<p>Let us look at the supermarket example again and let us assume
+that 60% of all customers buy some kind of bread. Consider the rule
+"cheese&nbsp;&rarr;&nbsp;bread", which holds with a confidence of, say,
+62%. Is this an important rule? Obviously not, since the fact that the
+customer buys cheese does not have a significant influence on him/her
+buying bread: The percentages are almost the same. But if you had
+chosen a confidence limit of 60%, you would get both rules
+"&empty;&rarr;&nbsp;bread" (confidence 60%) and
+"cheese&nbsp;&rarr;&nbsp;bread" (confidence 62%), although the first
+would suffice (the first, because it is the simpler of the two).
+The idea of all measures, which can be used in addition or instead
+of rule confidence, is to handle such situations and to suppress the
+second rule.</p>
+
+<p>In addition, consider the following case: Assume that the confidence
+of the rule "cheese&nbsp;&rarr;&nbsp;bread" is not 62% but 35%. With a
+confidence limit of 60% it would not be selected, but it may be very
+important to know about this rule! Together with cheese, bread is
+bought much less frequently than it is bought at all. Is cheese some
+kind of substitute for bread, so that one does not need any bread if
+one has cheese? Ok, maybe this is not a very good example. However,
+what can be seen is that a rule with low confidence can be very
+interesting, since it may capture an important influence. Furthermore,
+this is a way to express negation (although only in the consequent of
+a rule), since "cheese&nbsp;&rarr;&nbsp;bread" with confidence 35% is
+obviously equivalent to "cheese&nbsp;&rarr;&nbsp;no&nbsp;bread" with
+confidence 65%. This also makes clear why the support of the item
+set that contains all items in the antecedent ("if-part", "head")
+<i>and</i> the consequent ("then-part", "body") of the rule is not
+appropriate for this measure. An important rule may have confidence
+0 and thus a support (in the interpretation of
+<a href="#Agrawal_and_Srikant_1994">[Agrawal and Srikant 1994]</a>)
+of 0. Hence it is not reasonable to set a lower bound for this kind
+of support.</p>
+
+<p>I hope that the intention underlying all of these explanations is
+clear by now: Potentially interesting rules differ significantly in
+their confidence from the confidence of rules with the same consequent,
+but a simpler antecedent. Adding an item to the antecedent is
+informative only if it significantly changes the confidence of the
+rule. Otherwise the simpler rule suffices.</p>
+
+<p>Unfortunately the measures other than rule confidence do not solve
+the rule selection problem in the very general form in which it was
+stated above. It is not that easy to deal with all rules that have a
+simpler antecedent, to keep track of which of these rules were selected
+(this obviously influences the selection of more complicated rules),
+to deal with the special type of Poincare paradox that can occur etc.
+Hence the measures always compare the confidence of a rule with the
+confidence of the rule with an empty antecedent, that is, with the
+relative frequency of the consequent.</p>
+
+<p>I call the confidence of an association rule with an empty
+antecedent the <i>prior confidence</i> (of any rule with the same
+consequent), since it is the confidence that the item in the consequent
+of the rule will be present in a transaction <i>prior</i> to any
+information about other items that may be present. (Note that the
+prior confidence of a rule is obviously equal to the (relative)
+support of its consequent item.) The confidence of an association
+rule with non-empty antecedent (and the same consequent) I call the
+<i>posterior confidence</i> (or simple the <i>confidence</i>) of the
+rule, since it is the confidence that the item in the consequent of
+the rule will be present <i>after</i> it becomes known that the items
+in the antecedent of the rule are present.</p>
+
+<p>Most measures, which can be computed with my Apriori program and can
+be used for filtering in addition to the rule confidence, are basically
+computed from these two values: the prior confidence and the posterior
+confidence. Only those association rules are reported for which the
+value of the chosen additional evaluation measure is in a certain
+relation to certain limit (that is, either (1) meets or exceeds the
+limit or (2) does not exceed the limit &ndash; which relation applies
+depends on the chosen measure). The measures are chosen with the
+option <tt>-e</tt>, the limit is passed to the program via the option
+<tt>-d</tt>. The default value for the limit is 10%. Note that the
+option <tt>-d</tt> always interprets its argument as a percentage.
+As a consequence, the desired limit value may sometimes have to be
+multiplied by 100 in order to obtained the needed argument value.</p>
+
+<p>Note that all additional rule evaluation measures are combined with
+the limits for rule confidence and rule support. That is, my Apriori
+program reports only those rules, the confidence of which is greater
+than or equal to the minimum confidence, the support of which is
+greater than or equal to the minimum support, <i>and</i> for which the
+additional evaluation value (if selected) is in the measure-specific
+relation to the limit for this measure. The default is to use no
+additional evaluation measure (but this may also be specified
+explicitly with the option <tt>-ex</tt>), that is, to rely only on
+rule confidence and rule support. Of course you can remove the
+restriction that the rule support and the rule confidence must meet
+or exceed certain limits by simply setting either (or both) of these
+limits to zero. In this case rules are selected using only the limit
+for the additional evaluation measure. (Attention: If you have a large
+number of items, setting the minimum rule support or the minimum rule
+confidence to zero can result in <i>very</i> high memory consumption.
+Therefore: use this possibility with a lot of care, if at all.)</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="diff">Absolute Confidence Difference to Prior
+    (option <tt>-ed</tt>)</a></h4>
+
+<p>The simplest way to compare the posterior and the prior confidence
+of an association rule (since the former should differ considerably from
+the latter to make the rule interesting) is to compute the absolute
+value of their difference. That is, if "&empty;&rarr;&nbsp;bread" has
+a confidence of 60% and "cheese&nbsp;&rarr;&nbsp;bread" has a confidence
+of 62%, then the value of this measure is 2% (for the second rule).
+The parameter given with the option <tt>-d</tt> to the program states
+a lower bound for this difference (in percentage points). It follows
+that this measure selects rules, the (posterior) confidence of which
+differs more than a given threshold from the corresponding prior
+confidence.</p>
+
+<p>For example, with the option <tt>-d20</tt> (and, of course, the
+option <tt>-ed</tt> to select this measure) only rules with a confidence
+less than 40% or greater than 80% would be selected for the item "bread"
+in the consequent. As a consequence, the selected rules are those, for
+which the antecedent considerably changes the confidence. (Note that,
+of course, for other items, with a different prior confidence, the upper
+and lower bounds are different. For example, they are 10% and 50% for a
+rule with a prior confidence of 30%.)</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="lift">Lift Value
+    (Confidence Quotient, option <tt>-el</tt>)</a></h4>
+
+<p>The so-called lift value is simply the quotient of the posterior
+and the prior confidence of an association rule. That is, if
+"&empty;&rarr;&nbsp;bread" has a confidence of 60% and
+"cheese&nbsp;&rarr;&nbsp;bread" has a confidence of 72%, then the lift
+value (of the second rule) is 72/60 = 1.2. Obviously, if the posterior
+confidence equals the prior confidence, the value of this measure
+is&nbsp;1. If the posterior confidence is greater than the prior
+confidence, the lift value exceeds&nbsp;1 (the presence of the
+antecedent items raises the confidence), and if the posterior
+confidence is less than the prior confidence, the lift value is
+less than&nbsp;1 (the presence of the antecedent items lowers the
+confidence).</p>
+
+<p>More formally, the lift of the
+rule&nbsp;R&nbsp;=&nbsp;X&nbsp;&rarr;&nbsp;Y is</p>
+
+<table>
+<tr><td>lift(R)&nbsp;=&nbsp;</td>
+    <td align="center">conf(X&nbsp;&rarr;&nbsp;Y)<br><hr>
+                       conf(&empty;&nbsp;&rarr;&nbsp;Y)</td>
+    <td>&nbsp;=&nbsp;</td>
+    <td align="center">supp(X&nbsp;&cup;&nbsp;Y)/supp(X)<br><hr>
+                       supp(Y)/supp(&empty;)</td></tr>
+</table>
+
+<p>where supp(&empty;)&nbsp;=&nbsp;|T|, the size of the
+transaction database (number of transactions).</p>
+
+<p>The value that can be passed to the program with the option
+<tt>-d</tt> is a lower limit for this measure: only rules for which this
+measure meets or exceeds the given value are reported. As a consequence,
+the selected rules are those that raise the confidence by at least a
+given minimum factor. Note, however, that the option <tt>-d</tt> always
+interprets its arguments as a percentage. Therefore, in order to filter
+rules with a lift value of at least 1.2, the option <tt>-d120</tt> must
+be provided (that is, the argument must be the limit for the lift value
+times 100%).<p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="ld21">Absolute Difference of Lift Value to 1
+    (option <tt>-ea</tt>)</a></h4>
+
+<p>With the lift value (see preceding section) it is not possible to
+filter association rules for which the lift value <i>differs</i> more
+than a given amount from&nbsp;1, because the limit passed to the program
+with the option <tt>-d</tt> is a <i>lower</i> limit. Hence only rules
+with a lift value that <i>exceeds</i>&nbsp;1 by a given minimum amount
+(and thus, for which the presence of the antecedent items raises the
+confidence by at least a given factor) can be properly filtered.</p>
+
+<p>In order to be able to filter rules for which the lift value
+<i>differs</i> by more than a given amount from&nbsp;1, the absolute
+difference of the lift value to&nbsp;1 can be used (option
+<tt>-ea</tt>). For example, if the prior confidence of an association
+rule (the support of its consequent) is 60% and the option <tt>-d20</tt>
+is given, rules with a confidence less than or equal to
+(1&nbsp;&ndash;20%)&nbsp;*60%&nbsp;=&nbsp;0.8&nbsp;*60%&nbsp;=&nbsp;48%
+or a confidence greater than or equal to
+(1&nbsp;+20%)&nbsp;*60%&nbsp;=&nbsp;1.2&nbsp;*60%&nbsp;=&nbsp;72%
+are selected. Similarly, if the prior confidence is 30%, the numbers
+are 0.8&nbsp;*30%&nbsp;=&nbsp;24% and 1.2&nbsp;*30%&nbsp;=&nbsp;36%.
+</p>
+
+<p>As these examples show, the main difference between this measure
+and the absolute difference of the posterior and prior confidences is
+that the deviation that is considered to be significant depends on the
+prior confidence (12% deviation for 60% prior confidence, but only 6%
+deviation for 30% prior confidence). The idea is that for a high prior
+confidence the deviation of the posterior confidence must also be high,
+and if it is low, the deviation only needs to be low.</p>
+
+<p>(I am grateful to Roland Jonscher, S-Rating GmbH, Berlin, Germany,
+who pointed out this measure to me.)</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="quot">Difference of Lift Quotient to 1
+    (option <tt>-eq</tt>)</a></h4>
+
+<p>Instead of simply forming the absolute difference of the lift value
+of an association rule, one may also compute the difference of either
+the lift value or its reciprocal, whichever is smaller, to one. Since
+either the lift value or its reciprocal must be less than or at most
+equal to one (and necessarily non-negative), this yields a value
+between&nbsp;0 and&nbsp;1. This measure can be selected with the
+option <tt>-eq</tt>, a lower limit can, as usual, be specified with
+the option <tt>-d</tt>.</p>
+
+<p>For example, if the prior confidence of an association rule (the
+support of its consequent) is 60% and the option <tt>-d20</tt> is
+given, association rules with a confidence less than or equal to
+(1&nbsp;&ndash;20%)&nbsp;*60%&nbsp;=&nbsp;0.8&nbsp;*60%&nbsp;=&nbsp;48%
+or a confidence greater than or equal to
+60%&nbsp;/(1&nbsp;&ndash;20%) = 60%&nbsp;/0.8 =&nbsp;75% are selected.
+On the other hand, if the prior confidence is only 30%, rules with a
+(posterior) confidence of no more than 0.8&nbsp;*30%&nbsp;=&nbsp;24%
+or at least 30%&nbsp;/0.8&nbsp;=&nbsp;37.5% are selected
+(with <tt>-d20</tt>).</p>
+
+<p>Note that the main difference to the absolute difference of the
+lift value to one (see the <a href="#ld21">preceding section</a>)
+is that positive and negative deviations are treated differently.
+With the absolute difference of the lift value to one, positive and
+negative deviations (posterior confidence exceeding and falling
+short of the prior confidence, respectively) are treated the same.
+The deviation must be by the same amount (in percentage points) in
+order to select the rule. With this measure (difference of lift
+quotient to&nbsp;1), however, a negative deviation by a certain number
+of percentage points can lead to the selection of the rule, while
+the same positive deviation (in percentage points) need not lead
+to a selection of the rule. For the example above, with a prior
+confidence of 60%, the positive deviation limit is 15%, the negative
+deviation limit only 12%. Likewise, for a prior confidence of 30%,
+the positive deviation limit is 7.5%, while the negative deviation
+limit is only 6%.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="cvct"></a>Conviction (Inverse Lift for Negated Head,
+    option <tt>-ev</tt>)</h4>
+
+<p>The conviction of an association rule
+R&nbsp;=&nbsp;X&nbsp;&rarr;&nbsp;Y is the inverse lift of the rule
+R'&nbsp;=&nbsp;X&nbsp;&rarr;&nbsp;not&nbsp;Y. That is, while the
+lift of the rule&nbsp;R is</p>
+
+<table>
+<tr><td>lift(R)&nbsp;=&nbsp;</td>
+    <td align="center">conf(X&nbsp;&rarr;&nbsp;Y)<br><hr>
+                       conf(&empty;&nbsp;&rarr;&nbsp;Y)</td>
+</table>
+
+<p>the conviction of the rule&nbsp;R is</p>
+
+<table>
+<tr><td>cvct(R)&nbsp;=&nbsp;</td>
+    <td align="center">1&nbsp;&ndash;&nbsp;conf(&empty;&nbsp;&rarr;&nbsp;Y)<br><hr>
+                       1&nbsp;&ndash;&nbsp;conf(X&nbsp;&rarr;&nbsp;Y)</td>
+    <td>&nbsp;=&nbsp;</td>
+    <td align="center">conf(&empty;&nbsp;&rarr;&nbsp;not&nbsp;Y)<br><hr>
+                       conf(X&nbsp;&rarr;&nbsp;not&nbsp;Y)</td>
+</table>
+
+<p>where supp(&empty;)&nbsp;=&nbsp;|T|, the size of the
+transaction database.</p>
+
+<p>Intuitively, the conviction states by what factor the correctness
+of the rule (as expressed by its confidence) would reduce if the
+antecedent and the consequent of the rule were independent. A high
+value therefore means that the consequent depends strongly on the
+antecedent. Consequently, the value passed with the option <tt>-d</tt>
+is interpreted as a lower limit. Note, however, that the option
+<tt>-d</tt> always interprets its arguments as a percentage (cf.
+the discussion of the lift value). Therefore, in order to filter
+rules with a conviction value of at least 1.2, the option <tt>-d120</tt>
+must be provided (that is, the argument must be the limit for the
+conviction value times 100%).</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="cvctdiff"></a>Absolute Difference of Conviction to 1
+    (option <tt>-ee</tt>)</h4>
+
+<p>Analogous to <a href="#ld21">Absolute Difference of Lift Value
+to&nbsp;1</a>, only with conviction instead of lift.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="cvctquot"></a>Difference of Conviction Quotient to 1
+    (option <tt>-er</tt>)</h4>
+
+<p>Analogous to <a href="#quot">Difference of Lift Quotient
+to&nbsp;1</a>, only with conviction instead of lift.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="cert"></a>Certainty Factor (option <tt>-ez</tt>)</h4>
+
+<p>The certainty factor of a rule states by how much the prior
+confidence changes to the posterior confidence relative to the
+maximumally possible change in the same direction. That is, the
+certainty factor distinguishes whether the posterior confidence
+is larger or smaller than the prior confidence. If it is larger,
+it relates the change to a hypothetical change to the maximally
+possible posterior confidence 100%. That is, in this case the
+certainty factor is</p>
+
+<table>
+<tr><td>cf(R)&nbsp;=&nbsp;</td>
+    <td align="center">conf(X&nbsp;&rarr;&nbsp;Y)
+               &ndash; conf(&empty;&nbsp;&rarr;&nbsp;Y)<br><hr>
+          100% &ndash; conf(&empty;&nbsp;&rarr;&nbsp;Y)</td>
+</table>
+
+<p>On the other hand, that is, if the posterior confidence is smaller
+than the prior confidence, it relates the change to a hypothetical
+change to the minimally possible posterior confidence 0%. That is,
+in this case the certainty factor is</p>
+
+<table>
+<tr><td>cf(R)&nbsp;=&nbsp;</td>
+    <td align="center">conf(&empty;&nbsp;&rarr;&nbsp;Y)
+               &ndash; conf(X&nbsp;&rarr;&nbsp;Y)<br><hr>
+                       conf(&empty;&nbsp;&rarr;&nbsp;Y)
+               &ndash; 0%</td>
+</table>
+
+<p>In this way the certainty factor assesses a small increase of
+an already high prior confidence as more significant than the same
+increase of a smaller prior confidence. For example, an increase from
+90% to 92% gives rise to a certainty factor of 0.2&nbsp;=&nbsp;20%
+(2% increase divided by 10% maximally possible change from 90% to
+100%). The same increase from 60% to 62%, however, only gives rise
+to certainty factor of 0.05&nbsp;=&nbsp;5% (2% increase divided by
+40% maximally possible change from 60% to 100%).</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="chi2"></a>Normalized &chi;<sup>2</sup>-Measure
+    (option <tt>-en</tt>)</h4>
+
+<p>The &chi;<sup>2</sup>-measure is well known from statistics. It is
+often used to measure the difference between a conjectured independent
+distribution of two discrete variables and the actual joint distribution
+in order to determine how strongly two variables depend on each other
+(or whether they are independent). The two (binary) variables considered
+here are the consequent and the antecedent of the rule, namely whether
+(all) the items contained in them are present or not (variable X: all
+antecedent items are present (X=1) versus at least one absent (X=0),
+and variable Y: consequent item present (Y=1) versus consequent item
+absent (Y=0)).</p>
+
+<p>Formally, the &chi;<sup>2</sup>-measure can be defined as</p>
+
+<table>
+<tr><td>&chi;<sup>2</sup>(R)&nbsp;=&nbsp;n</td>
+    <td align="center">(n<sub>01</sub>n<sub>10</sub>
+                        n<sub>11</sub>n)<sup>2</sup><br><hr>
+    n<sub>01</sub> (n &ndash; n<sub>01</sub>)
+    n<sub>10</sub> (n &ndash; n<sub>10</sub>)</td>
+</table>
+
+<p>where the first index of the n's refers to X and the second to Y
+and n&nbsp;=&nbsp|T| is the total number of transactions in the
+database.</p>
+
+<p>Clearly, the &chi;<sup>2</sup>-measure contains the number n of
+cases it is computed from as a factor. Even though this is, of course,
+highly relevant in statistics, this is not very convenient if one wants
+to filter association rules that can have different support. Hence in
+my Apriori program this factor is removed by simply dividing the
+measure by the total number n of transactions. With this normalization,
+the &chi;<sup>2</sup>-measure can have values between 0 (no dependence)
+and 1 (very strong &ndash; or actually perfect &ndash; dependence).
+The value that can be passed with the <tt>-d</tt> option is a lower
+bound for the strength of the dependence of the consequent on the
+antecedent in percent (0 &ndash; no dependence, 100 &ndash; perfect
+dependence). Only those association rules are selected, in which the
+consequent depends on the antecedent with this or a higher degree of
+dependence.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="pval"></a>p-Value Computed from &chi;<sup>2</sup> Measure
+    (option <tt>-ep</tt>)</h4>
+
+<p>Provided that the two considered variables are independent, the
+&chi;<sup>2</sup>-measure has a &chi;<sup>2</sup>-distribution, which,
+for two binary variables, has one degree of freedom. Hence it is
+possible to compute the probability that the &chi;<sup>2</sup>-value
+of an association rule under consideration can be observed by chance
+under the assumption that the antecedent and the consequent of the
+rule are independent.</p>
+
+<p>Since with this measure small p-values indicate interesting rules,
+the value given as a parameter to the option <tt>-d</tt> is an
+<i>upper</i> limit. Note also that the option <tt>-d</tt> interprets
+its parameter as a percentage, so that <tt>-d1</tt> means that only
+association rules with a p-value smaller than 1%&nbsp;=&nbsp;0.01
+are reported.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="yates"></a>Normalized &chi;<sup>2</sup>-Measure with
+    Yates' Correction (option <tt>-ey</tt>)</h4>
+
+<p>The &chi;<sup>2</sup>-distribution, that is used to compute a
+p-value from the <a href="#chi2">&chi;<sup>2</sup>-measure</a> is
+a continuous distribution, but the &chi;<sup>2</sup>-measure is
+computed from the discrete entries of a 2x2 contingency table.
+As a consequence, the assumption that the distribution of the
+(discrete) &chi;<sup>2</sup>-measure can be approximated by the
+(continuous) &chi;<sup>2</sup>-distribution is not quite correct
+and can lead to some approximation error. To reduce this error,
+Yates suggested a correction of the &chi;<sup>2</sup>-measure,
+which is also known as Yates' correction for continuity. Its
+intention is to prevent an overestimation of significance (that
+is, p-values smaller than justified) if the counters in the
+contingency table have small values (small underlying data set).</p>
+
+<p>Formally, the Yates-corrected &chi;<sup>2</sup>-measure can be
+defined as</p>
+
+<table>
+<tr><td>&chi;<sup>2</sup>(R)&nbsp;=&nbsp;n</td>
+    <td align="center">(n<sub>01</sub>n<sub>10</sub>
+                        n<sub>11</sub>n -0.5n)<sup>2</sup><br><hr>
+    n<sub>01</sub> (n &ndash; n<sub>01</sub>)
+    n<sub>10</sub> (n &ndash; n<sub>10</sub>)</td>
+</table>
+
+<p>where the first index of the n's refers to X and the second to Y
+and n&nbsp;=&nbsp|T| is the total number of transactions in the
+database.</p>
+
+<p>Like the standard &chi;<sup>2</sup>-measure, The Yates-corrected
+&chi;<sup>2</sup>-measure contains the number n of cases it is computed
+from as a factor. Even though this is, of course, highly relevant in
+statistics, this is not very convenient if one wants to filter
+association rules that can have different support. Hence in
+my Apriori program this factor is removed by simply dividing the
+measure by the total number n of transactions. With this normalization,
+the Yates-corrected &chi;<sup>2</sup>-measure can have values between
+0 (no dependence) and 1 (very strong &ndash; or actually perfect &ndash;
+dependence). The value that can be passed with the <tt>-d</tt> option
+is a lower bound for the strength of the dependence of the consequent
+on the antecedent in percent (0 &ndash; no dependence, 100 &ndash;
+perfect dependence). Only those association rules are selected, in
+which the consequent depends on the antecedent with this or a higher
+degree of dependence.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="yatespval">p-Value Computed from</a> Yates-corrected
+    &chi;<sup>2</sup>-Measure (option <tt>-et</tt>)</h4>
+
+<p>Analogous to the <a href="#pval">p-value computed from the standard
+&chi;<sup>2</sup>-measure</a>, but with the Yates-corrected
+&chi;<sup>2</sup>-measure.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="info">Information Difference to Prior
+    (option <tt>-ei</tt>)</a></h4>
+
+<p>The information difference to the prior is simply the <i>information
+gain</i> criterion (also called <i>mutual information</i> that is also
+used, for example, in decision tree learners like C4.5 to select the
+split attributes. Its basic idea is as follows: Without any further
+information about other items in the set, we have a certain probability
+(or, to be exact, a relative frequency) distribution for, say "bread"
+and "no bread". Let us assume it is 60% : 40% (prior confidence of the
+item "bread", just as above). This distribution has a certain
+entropy</p>
+
+<p>H = - P(bread)    log<sub>2</sub> P(bread)
+       - P(no bread) log<sub>2</sub> P(no bread),</p>
+
+<p>where P(bread) is equivalent to the (relative) support of "bread",
+which in turn is equivalent to the prior confidence of "bread".
+The entropy of a probability distribution is, intuitively, a lower
+bound on the number of yes-no-questions you have to ask in order to
+determine the actual value. This cannot be understood very well with
+only two possible values, but it can be made to work for this case
+too. I skip the details here, they are not that important for this
+application of information gain.</p>
+
+<p>After we get the information that the items in the antecedent of
+the association rule are present (say, cheese), we have a different
+probability distribution, say 35% : 65%. I.e., P(bread|cheese) = 0.35
+and P(no&nbsp;bread|cheese) = 0.65. If we also know the support of the
+item "cheese" (let it be P(cheese) = 0.4 and P(no&nbsp;cheese) = 0.6),
+then we can also compute the probabilities P(bread|no&nbsp;cheese) =
+0.77 and P(no&nbsp;bread|no&nbsp;cheese) = 0.23. Hence we have two
+posterior probability distributions: one in case cheese is also
+present, and one in case cheese is not present. The question now is:
+How much information do we receive by observing whether the antecedent
+of the rule holds or not? Information is measured as a reduction of
+entropy. Hence the entropies of the two conditional probability
+distributions (one for "cheese" and one for "no&nbsp;cheese") are
+computed and summed weighted with the probability of their occurrence
+(that is, the relative frequency of "cheese" and "no&nbsp;cheese",
+respectively). This gives the (expected value of the) posterior or
+conditional entropy. The difference of this value to the prior entropy
+(see above) is the gain in information from the antecedent of the rule
+or, as I called it here, the information difference to the prior.</p>
+
+<p>The value that can be given via the <tt>-d</tt> option is a lower
+bound for the information gain, measured in hundreds of a bit (percent
+of one bit). (Note that, since all items can only be present or absent,
+the information gain can be at most one bit.)</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="pgst">p-Value Computed from G-Statistic</a>
+    (option <tt>-eg</tt>)</h4>
+
+<p>The so-called G-statistic is a less well-known alternative to the
+&chi;<sup>2</sup>-measure that is based on information gain (or mutual
+information). Formally, it is proportional to the product of the
+information gain and the number of cases the information gain is
+computed from (here: the (absolute) support of the antecedent of
+the association rule). Under independence, the G-statistic also has
+a &chi;<sup>2</sup>-distribution and thus it can be used in a similar
+fashion as the <a href="#chi2">&chi;<sup>2</sup>-measure</a> to
+compute a p-value. This measure (p-value computed from G-statistic)
+can be selected with the option <tt>-eg</tt>.</p>
+
+<p>Since with this measure small p-values indicate interesting rules,
+the value given as a parameter to the option <tt>-d</tt> is an
+<i>upper</i> limit. Note also that the option <tt>-d</tt> interprets
+its parameter as a percentage, so that <tt>-d1</tt> means that only
+association rules with a p-value smaller than 1%&nbsp;=&nbsp;0.01
+are reported.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="fetprob"></a>Fisher's Exact Test; Table Probability
+    (option <tt>-ef</tt>)</h4>
+
+<p>Like the p-value computed from the &chi;<sup>2</sup>-measure,
+Fisher's exact test computes a p-value from a contingency table.
+It is often used to measure the difference between a conjectured
+independent distribution of two discrete variables and the actual
+joint distribution in order to determine how strongly two variables
+depend on each other (or whether they are independent). The two
+(binary) variables considered here are the consequent and the
+antecedent of the rule, namely whether (all) the items contained
+in them are present or not (variable X: all antecedent items are
+present (X=1) versus at least one absent (X=0), and variable Y:
+consequent item present (Y=1) versus consequent item absent (Y=0)).</p>
+
+<p>In Fisher's exact test, the marginals of the contingency table are
+fixed, that is, the support of the antecedent of the rule (that is,
+supp(X)) and the support of the consequent of the rule (that is,
+supp(Y)) as well as the total number of transactions, are seen as
+fixed. Under this assumption, the distribution of the numbers in the
+cells of the contingency table that respect the marginals follows
+a hypergeometric distribution.</p>
+
+<p>Fisher's exact test is based on the probability of finding,
+under the assumption of independence, a contingency table that is
+<i>at least as extreme</i> as the one that was actually observed.
+Of course, the notion "<i>at least as extreme</i>" needs clarification.
+Unfortunately, there are several ways of making this notion
+mathematically precise, which give rise to different forms of
+Fisher's exact test. The most common is to order the possible
+contingency tables based on the probability that is assigned to them
+by the hypergeometric distribution. In this case the p-value is the
+sum of the probabilities (as computed from the hypergeometric
+distribution) of all possible contingency tables that are no more
+probable than the one actually observed.</p>
+
+<p>Since with this measure small p-values indicate interesting rules,
+the value given as a parameter to the option <tt>-d</tt> is an
+<i>upper</i> limit. Note also that the option <tt>-d</tt> interprets
+its parameter as a percentage, so that <tt>-d1</tt> means that only
+association rules with a p-value smaller than 1%&nbsp;=&nbsp;0.01
+are reported.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="fetchi2"></a>Fisher's Exact Test; &chi;<sup>2</sup>-Measure
+    (option <tt>-eh</tt>)</h4>
+
+<p>Analogous to <a href="#fetprob">Fisher's exact text
+(table probability)</a>, but contingency tables ordered
+by the <a href="#chi2">&chi;<sup>2</sup>-measure</a>. In this case
+the p-value is the sum of the probabilities of all possible contingency
+tables that have a value of the &chi;<sup>2</sup>-measure that is no
+smaller than the value of the &chi;<sup>2</sup>-measure of the table
+that was actually observed.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="fetinfo"></a>Fisher's Exact Test; Information Gain
+    (option <tt>-em</tt>)</h4>
+
+<p>Analogous to <a href="#fetprob">Fisher's exact text
+(table probability)</a>, but contingency tables ordered
+by the <a href="#info">Information Gain</a>. In this case the p-value
+is the sum of the probabilities of all possible contingency tables that
+have an information gain that is no larger than the information gain
+of the table that was actually observed.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="fetsupp"></a>Fisher's Exact Test; Support
+    (option <tt>-es</tt>)</h4>
+
+<p>Analogous to <a href="#fetprob">Fisher's exact text
+(table probability)</a>, but contingency tables ordered
+by the rule support in its original definition, that is,
+by the support of all items in the antecedent (body) and
+the consequent (head) of the rule. In this case the p-value is the
+sum of the probabilities of all possible contingency tables that
+have a support for all the items in the antecedent and consequent
+that is no larger than the support in the table that was actually
+observed.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="orig"></a>Original Rule Support
+    (body &amp; head; option <tt>-eo</tt>)</h4>
+
+<p>The original rule support can be chosen as an additional evaluation
+measure to make it possible to use both the support of the antecedent
+(my interpretation of rule support) and of all items occurring in the
+rule (original interpretation of rule support) to select rules. Note
+that this measure deviates from the general scheme of comparing the
+prior and the posterior confidence and thus serves different
+purposes.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="conf"></a>Rule Confidence (option <tt>-ec</tt>)</h4>
+
+<p>The standard rule confidence can also be chosen as an additional
+rule evaluation measure. Obviously, this is not really useful for
+filtering association rules (because the rule confidence is always
+used by default already). Indeed, this option is not relevant for
+association rule selection, but can be useful for evaluation item
+sets, see <a href="#arem">here</a>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="behavior"></a>Selection Behavior of Some Measures</h4>
+
+<p>In the directory <tt>apriori/doc</tt> you can find a GnuPlot script
+named <tt>arem.gp</tt> (<tt>arem</tt> stands for "additional rule
+evaluation measures") which visualizes the behavior of some of some
+additional rule evaluation measures. This script draws eight 3d
+graphs, one for the absolute confidence difference, one for the
+difference of the lift quotient to one, three for the information
+difference to the prior confidence and three for the normalized
+&chi;<sup>2</sup>-measure. All graphs show the value of the additional
+rule evaluation measure over a plane defined by the prior and the
+posterior confidence of a rule. The latter two measures need three
+graphs, since they depend also on the antecedent support of a rule
+as a third parameter. Setting a minimal value for an additional rule
+evaluation measure is like flooding the corresponding graph landscape
+up to a certain level (given as a percentage, since all considered
+measures assume values between 0 and 1). Only those association rules
+are reported that "sit on dry land".</p>
+
+<p>The first graph shows the behavior of the absolute confidence
+difference. For the diagonal, that is, the line where the prior and
+the posterior confidence are identical, its value is zero (as expected).
+The more the two confidences differ, the higher the value of this
+measure gets, but in a linear way.</p>
+
+<p>The second graph shows the behavior of the lift quotient to one.
+Again its value is zero for the diagonal (as the value of all measures
+is) and becomes greater the more the prior and the posterior confidence
+differ. But it is much steeper for a small prior confidence than for a
+large one and it is non-linear.</p>
+
+<p>The third to fifth graph show the information difference to the
+prior confidence for an antecedent support (which is identical to the
+rule support in my interpretation, see above) of 0.2 (20%), 0.3 (30%)
+and 0.4 (40%). The regions at the margins, where the measure is zero,
+correspond to impossible combinations of prior and posterior confidence
+and antecedent support. As you can see, the valley gets narrower with
+increasing antecedent support. That is, with the same minimal value for
+this measure, rules with low antecedent support need a higher confidence
+difference to be selected than rules with a high antecedent support.
+This nicely models the statistical significance of confidence changes:
+if you only have a few cases to support your rule, even a large
+deviation from the prior confidence can be explained by random
+fluctuations, since only a few transactions need to be different to
+produce a considerable change. However, if the antecedent support
+is large, even a small deviation (in percent) has to be considered
+as significant (non-random), since it takes a lot of changes to
+transactions to produce even a small change in the percentage.
+This dependence on the antecedent support of the rule and that the
+valley is not pointed at the diagonal (which means that even a low
+minimal value can exclude a lot of rules) is the main difference
+between the information gain and the normalized
+&chi;<sup>2</sup>-measure on the one hand and the absolute confidence
+difference and difference of the lift quotient to one on the other.</p>
+
+<p>The sixth to eighth graph show the normalized
+&chi;<sup>2</sup>-measure for an antecedent support of 0.2 (20%),
+0.3 (30%), and 0.4 (40%). The valleys are very similar to those for
+the information difference to the prior confidence, they only have
+slightly steeper flanks, especially for low antecedent support. So
+in practice there is no big difference between the information
+difference and the normalized &chi;<sup>2</sup>-measure.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="setsel"></a>Extended Item Set Selection</h3>
+
+<p>Since versions 4.20 (binary logarithm of support quotient) and 4.36
+(other measures) there are also extended selection possibilities for
+frequent item sets. (These were added due to a cooperation with Sonja
+Gruen, RIKEN Brain Science Institute, Tokyo, Japan.)</p>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="logq"></a>Binary Logarithm of Support Quotient</h4>
+
+<p>A simple evaluation measure for item sets is the quotient of the
+actual support (as computed from the given transactions) and the
+expected support of an item set. The expected support of an item set
+can be computed from the support values of the individual items by
+assuming that the occurrences of all items are independent. Under
+independence we expect an item set to occur with a relative frequency
+that is the product of the relative occurrence frequencies of the
+individual items contained in it. Since this product quickly becomes
+very small (it decreases basically exponentially with the size of
+the item set), and thus the quotient of the actual and the expected
+frequency can become very large, it is advisable not to use the
+described support quotient directly, but its binary logarithm, so that
+its values stay in a manageable range. Computing the logarithm also
+has the advantage that the measure has the value zero for an item set
+that occurs exactly as often as expected under an assumption of item
+independence. The binary logarithm of the quotient of the actual and
+the expected support can be selected with the option <tt>-eb</tt>.</p>
+
+<p>As for the additional rule evaluation measures, a minimum value for
+this measure can be set with the option <tt>-d</tt>. In this case only
+frequent item sets for which this measure exceeds the given threshold
+are reported. Note, however, that the option <tt>-d</tt> generally
+interprets its argument as a percentage. That is, if you only want
+item sets reported that occur at least twice as often as expected under
+independence (and thus desire the binary logarithm of the quotient of
+the actual and the expected support to be at least 1), you have to
+specify <tt>-d100</tt>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="arem"></a>Additional Rule Evaluation Measures</h4>
+
+<p>Apart from the measure described in the <a href="#logq">preceding
+section</a> (which is specific to item sets), all evaluation measures
+for association rules, as they were described in <a href="#extend">this
+section</a> (including rule confidence, option <tt>-ec</tt>), can be
+used to filter item sets. The idea is to form all possible rules with
+one item in the consequent and all other items of the given item set in
+the antecedent. Each of these rules is then evaluated with the chosen
+measure and the results are aggregated. The aggregated value is the
+evaluation of the item set, and item sets can now be filtered by
+requiring a minimum value for this aggregation with the option
+<tt>-d</tt>.</p>
+
+<p>There are four different aggregation modes for the evaluations of
+the rules that can be formed from an item set, which can be selected
+via the option <tt>-a</tt>:</p>
+
+<table cellpadding=0 cellspacing=0>
+<tr><td><tt>-ax</tt></td><td style="width:4px"></td>
+    <td>no aggregation (use first value)</td></tr>
+<tr><td><tt>-am</tt></td><td></td>
+    <td>minimum of individual measure values</td></tr>
+<tr><td><tt>-an</tt></td><td></td>
+    <td>maximum of individual measure values</td></tr>
+<tr><td><tt>-aa</tt></td><td></td>
+    <td>average of individual measure values</td></tr>
+<tr><td><tt>-as</tt></td><td></td>
+    <td>split into equal size subsets</td></tr>
+</table>
+
+<p>Here "no aggregation (use first value)" means that only one
+association rule is formed. This rule has that item in the consequent
+that comes last in the order of the items. The evaluation of this rule
+is the evaluation of the item set. For the next three other options
+all possible rules are formed. For the last option a single rule with
+half of the items in the antecendent and the other half in the
+consequent is formed. If the total number of items is not even,
+the antecedent contains one item more.</p>
+
+<p>The order of the items is determined with the option <tt>-q</tt>.
+By default the items are sorted ascendingly w.r.t. the sum of the sizes
+of the transactions they are contained in. (Note that this choice is
+based on efficiency issues: it usually leads to the fastest search.
+However, for use with this aggregation mode, you may want to choose a
+different order.) Other sorting options are ascendingly w.r.t. the item
+frequency or descendingly w.r.t. item frequency or the sum of the sizes
+of the transactions the items are contained in. With the option
+<tt>-q0</tt> the order in which the items are first encountered when
+the transactions are read is used. A specific, user-defined order may
+also be chosen, namely by using the option <tt>-q0</tt> and using the
+optional item selection/appearances file (see <a href="#appear">this
+section</a>), since the item appearances file is read before the
+transactions file. Therefore, in this case, the order of items in
+the selection/appearances file determines the order of the items.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="prune"></a>Pruning with Additional Measures</h4>
+
+<p>By default only the minimum support is used to prune the search
+for frequent item sets. That is, if it is discovered that an item set
+does not meet the user-specified minimum support, no supersets of
+this item set are considered. (Note that this is a safe pruning rule,
+because no superset of an infrequent item set can be frequent.) With
+the option <tt>-p</tt> the additional item set evaluation measure
+can also be used for pruning the search additionally.</p>
+
+<p>Pruning with an additional item set evaluation measure comes in
+two flavors: forward and backward. Backward pruning (which is switched
+on with the option <tt>-p-1</tt>), means that all frequent item sets
+(item sets that reach or exceed the user-specified minimum support)
+are evaluated with the additional measure, but those item sets, the
+evaluation of which is less than the user-specified limit (option
+<tt>-d</tt>), are discarded.</p>
+
+<p>Note that providing or not providing the option <tt>-p-1</tt> makes
+no difference for finding <i>frequent item sets</i>, since for this
+target type simply selecting an additional evaluation measure and a
+limit for its value already have the effect of discarding item sets
+for which the additional evaluation is too low. However, backward
+pruning can make a huge difference for finding <i>closed</i> or
+<i>maximal item sets</i>. The reason is that the option <tt>-p</tt>
+changes the order in which item sets are filtered by the additional
+evaluation measure and are filtered for closed (or maximal) item sets:
+by default (or if explicitly requested with the option <tt>-p0</tt>),
+the item sets are first filtered for closed (or maximal) item sets.
+Then only the closed (or maximal) item sets are evaluated with the
+additional measure and thus further reduced to those closed (or maximal)
+item sets that reach or exceed the user-specified evaluation limit.
+With the option <tt>-p-1</tt> (or any other negative number as the
+argument - all negative numbers have the same effect) all frequent
+item sets are first evaluated with the additional measure and those
+that do not reach or exceed the user-specified limit are discarded.
+Only afterwards the closed (or maximal) item sets of this reduced set
+of item sets are determined.</p>
+
+<p>Forward pruning, on the other hand, means that in addition to a check
+whether the additional evaluation of an item set reaches or exceeds the
+user-specified limit, it is tested whether all of its subsets (with at
+least a certain size) reach or exceed the limit. Only if this is the
+case, the item set is reported. (Technically, this is achieved by not
+considering any superset of item sets that failed to reach or exceed
+the user-specified limit for the additional measure - hence the name
+"forward pruning".)</p>
+
+<p>Since some additional measures (like, for example, the
+&chi;<sup>2</sup>-measure) cannot reasonably be used to evaluate the
+empty set or single element sets, but also because this restriction
+can be useful for certain applications, the option <tt>-p</tt> allows
+for a parameter that states the minimum size of the subsets that are
+to be considered. For example, <tt>-p2</tt> means that only subsets
+with at least two elements are required to reach or exceed the
+user-specified limit; single element sets and the empty set need not
+do so. Similarly, <tt>-p4</tt> means that all subsets up to a size of
+3 are ignored in the check; only subsets with at least 4 elements must
+reach or exceed the limit. Note that the option <tt>-p1</tt> usually
+produces no output, because all single element sets and the empty set
+are formally assigned an additional evaluation of 0 for most measures.
+Hence 2 is usually the smallest useful parameter for this option.</p>
+
+<p>Note also that, for example, <tt>-p4</tt> does <i>not</i> mean that
+all reported item sets must have at least four elements. It rather
+means that there is no additional requirement for item sets up to
+four elements. If you want to require a minimum size for reported
+item sets, use the option <tt>-m</tt>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<hr>
+
+<h4><a name="suppquot"></a>Difference of Support Quotient to 1</h4>
+
+<p>As with the preceding measure the quotient of actual and expected
+support of an item set is computed and compared to 1 (a value of 1
+signifies independence of the items). A minimum value for this measure
+can be set with the option <tt>-d</tt>. In this case only frequent item
+sets for which this measure exceeds the given threshold are kept.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="tatree"></a>Transaction Prefix Tree</h3>
+
+<p>The counting process can be sped up by organizing the transactions
+into a prefix tree. That is, the items in each transaction are sorted
+and then transactions with the same prefix are grouped together and
+are counted, as one may say, in parallel. This way of organizing the
+transactions was added in version 4.03 and is the default behavior now.
+If you prefer that the transactions are treated individually (i.e., the
+transactions are stored in a simple list and only one transaction is
+counted at a time), use the option <tt>-h</tt>.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="compopt"></a>Compilation Options</h3>
+
+<p>The program can be compiled with two additional compilation options
+(see <tt>makefile</tt>), namely <tt>-DBENCH</tt> and <tt>-DALIGN8</tt>.
+</p>
+
+<p>Compiling the program with <tt>-DBENCH</tt> produces a version that
+prints some benchmark information on termination, in particular about
+the memory used during the item set tree construction (number of nodes,
+counters, necessary counters, child pointers, necessary child pointers).
+Collecting the memory usage information slightly, but negligibly
+increases the execution time.</p>
+
+<p>Compiling the program with <tt>-DALIGN8</tt> produces a version for
+64 bit machines (architecture model: pointers are 64 bits, integers are
+32 bits wide) that require pointers to be aligned to addresses that are
+divisible by 8. (Note that this is not the case for standard Intel or
+AMD processors, which can read 64 bit pointers from any address that
+is divisible by 4. For such systems it is not necessary to use the flag
+<tt>-DALIGN8</tt>.) The needed adaptations slightly, but negligibly
+increase memory consumption. (I am grateful to Anthony Casaletto,
+SPSS Inc., for helping me a lot to identify these alignment problems,
+by compiling and testing the program on a 64 bit machine with alignment
+requirements, since I do not have access to one.)</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="copying"></a>Copying</h3>
+
+<p>Apriori -
+   find frequent item sets and association rules
+   with the Apriori algorithm<br>
+   copyright &copy; 1996-2008  Christian Borgelt</p>
+
+<p>This program is free software; you can redistribute it and/or
+modify it under the terms of the
+<a href="http://www.fsf.org/copyleft/lesser.html">
+GNU Lesser (Library) General Public License</a> as published by the
+<a href="http://www.fsf.org">Free Software Foundation</a>.</p>
+
+<p>This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href="http://www.fsf.org/copyleft/lesser.html">
+GNU Lesser (Library) General Public License</a> for more details.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="download"></a>Download</h3>
+
+<p><a href="http://www.borgelt.net/apriori.html">
+Download page</a> with most recent version.</p>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="contact"></a>Contact</h3>
+
+<table border=0 cellpadding=1 cellspacing=4>
+<tr><td valign=top>E-mail:</td><td style="width:10px"></td>
+    <td><a href="mailto:christian@borgelt.net">
+        christian@borgelt.net</a><br>
+        <a href="mailto:christian.borgelt@softcomputing.es">
+        christian.borgelt@softcomputing.es</a></td></tr>
+<tr><td valign=top>Snail mail:</td><td></td>
+    <td><a href="http://www.softcomputing.es/metaspace/portal/ecsc/38?pms=1,125,38007,view,normal,0&amp;id=13">
+        Christian Borgelt</a><br>
+        <a href="http://www.softcomputing.es/metaspace/portal/3/47-intelligent-data-analysis?pms=1,7,188003,view,normal,0">
+        Intelligent Data Analysis and Graphical Models Research Unit</a><br>
+        <a href="http://www.softcomputing.es/">
+        European Center for Soft Computing</a><br>
+        Edificio Cientifico-Tecnol&oacute;gico, 3<sup>a</sup> Planta<br>
+        c/ Gonzalo Guti&eacute;rrez Quir&oacute;s s/n<br>
+        33600 Mieres (Asturias)<br>
+        Spain</td></tr>
+<tr><td>Phone:</td><td></td>
+    <td>+34 985 456545</td></tr>
+<tr><td>Fax:</td><td></td>
+    <td>+34 985 456699</td></tr>
+</table>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<h3><a name="refs">References</a></h3>
+
+<p>An overview of frequent item set mining covering Apriori and many
+other algorithms can be found in this survey paper:</p>
+
+<ul style="list-style-type:disc">
+<li><a name="Borgelt_2012"></a><b>Frequent Item Set Mining</b><br>
+    Christian Borgelt<br>
+    <i>Wiley Interdisciplinary Reviews:
+    Data Mining and Knowledge Discovery</i> 2(6):437-456.<br>
+    J.&nbsp;Wiley&nbsp;&amp;&nbsp;Sons, Chichester, United Kingdom 2012<br>
+    <a href="http://dx.doi.org/10.1002/widm.1074">doi:10.1002/widm.1074</a>
+    <a href="http://onlinelibrary.wiley.com/doi/10.1002/widm.1074/abstract">wiley.com</a><br>
+    (20&nbsp;pages)</li>
+</ul>
+
+<p>A description of some implementation aspects can be found in
+the following papers:</p>
+
+<ul style="list-style-type:disc">
+<li><a name="Borgelt_2004"></a><b>Recursion Pruning
+    for the Apriori Algorithm</b><br>
+    Christian Borgelt<br>
+    <i>2nd Workshop of Frequent Item Set Mining Implementations</i>
+    (FIMI 2004, Brighton, UK).<br>
+    <a href="papers/fimi_04.pdf">fimi_04.pdf</a> (>41 kb)
+    <a href="papers/fimi_04.ps.gz">fimi_04.ps.gz</a> (>29 kb)
+    (2 pages)</li>
+<li><a name="Borgelt_2003"></a><b>Efficient Implementations
+    of Apriori and Eclat</b><br>
+    Christian Borgelt<br>
+    <i>Workshop of Frequent Item Set Mining Implementations</i>
+    (FIMI 2003, Melbourne, FL, USA).<br>
+    (9 pages)
+    <a href="http://www.borgelt.net/papers/fimi_03.pdf">
+    fimi_03.pdf</a> (304 kb)
+    <a href="http://www.borgelt.net/papers/fimi_03.ps.gz">
+    fimi_03.ps.gz</a> (197 kb)</li>
+<li><a name="Borgelt_and_Kruse_2002"></a><b>Induction
+    of Association Rules: Apriori Implementation</b><br>
+    Christian Borgelt and Rudolf Kruse<br>
+    <i>15th Conference on Computational Statistics</i>
+    (Compstat 2002, Berlin, Germany), 395-400<br>
+    Physica Verlag, Heidelberg, Germany 2002<br>
+    <a href="papers/cstat_02.pdf">cstat_02.pdf</a> (>105 kb)
+    <a href="papers/cstat_02.ps.gz">cstat_02.ps.gz</a> (>91 kb)
+    (6 pages)</li>
+</ul>
+
+<p>The use of pattern spectra to evaluate the statistical significance
+of found frequent item sets is explained in these papers:</p>
+
+<ul style="list-style-type:disc">
+<li><a name="Picado-Muino_et_al_2013"></a><b>Finding Neural Assemblies
+    with Frequent Item Set Mining</b><br>
+    David Picado-Mui&ntilde;o, Christian Borgelt, Denise Berger,
+    George Gerstein, and Sonja Gr&uuml;n<br>
+    <i>Frontiers in Neuroinformatics</i> 7:article&nbsp;9<br>
+    Frontiers Media, Lausanne, Switzerland 2013<br>
+    <a href="http://dx.doi.org/10.3389/fninf.2013.00009">doi:10.3389/fninf.2013.00009</a>
+    <a href="http://www.frontiersin.org/Neuroinformatics/10.3389/fninf.2013.00009/abstract">frontiersin.org</a><br>
+    <a href="papers/accfim.pdf">accfim.pdf</a> (1797 kb)
+    <a href="papers/accfim.ps.gz">accfim.ps.gz</a> (772 kb)
+    (14&nbsp;pages)</li>
+<li><a name="Torre_et_al_2013"></a><b>Statistical Evaluation
+    of Synchronous Spike Patterns extracted by Frequent Item
+    Set Mining</b><br>
+    Emiliano Torre, David Picado-Mui&ntilde;o, Michael Denker,
+    Christian Borgelt, and Sonja Gr&uuml;n<br>
+    <i>Frontiers in Computational Neuroscience</i>,
+    7:article&nbsp;132<br>
+    Frontiers Media, Lausanne, Switzerland 2013<br>
+    <a href="http://dx.doi.org/10.3389/fninf.2013.00132">doi:10.3389/fninf.2013.00132</a>
+    <a href="http://www.frontiersin.org/Computational_Neuroscience/10.3389/fncom.2013.00132/abstract">frontiersin.org</a><br>
+    (13&nbsp;pages)</li>
+</ul>
+
+<p>Other references for the Apriori algorithm include:</p>
+
+<ul style="list-style-type:disc">
+<li><a name="Agrawal_and_Srikant_1994"></a><b>Fast Algorithms
+    for Mining Association Rules</b><br>
+    R.&nbsp;Agrawal and R.&nbsp;Srikant<br>
+    <i>Proc. 20th Int. Conf. on Very Large Databases
+    (VLDB 1994, Santiago de Chile)</i>, 487-499<br>
+    Morgan Kaufmann, San Mateo, CA, USA 1994</li>
+<li><a name="Agrawal_et_al_1996"></a><b>Fast Discovery
+    of Association Rules</b><br>
+    R.&nbsp;Agrawal, H.&nbsp;Mannila, R.&nbsp;Srikant,
+    H.&nbsp;Toivonen, and A.&nbsp;Verkamo<br>
+    In: U.M.&nbsp;Fayyad, G.&nbsp;Piatetsky-Shapiro,
+    P.&nbsp;Smyth, and R.&nbsp;Uthurusamy, eds.<br>
+    <i>Advances in Knowledge Discovery and Data Mining</i>, 307-328<br>
+    AAAI Press / MIT Press, Cambridge, CA, USA 1996</li>
+</ul>
+
+<table width="100%" border=0 cellpadding=0 cellspacing=0>
+<tr><td style="width:95%" align="right">
+        <a href="#top">back to the top</a></td>
+    <td style="width:5px"></td>
+    <td><a href="#top"><img src="up.gif" alt="top"></a></td></tr>
+</table>
+
+<!-- =============================================================== -->
+<p><img src="line.gif" alt="" height=7 width=704></p>
+
+<address>&copy; 2002-2010
+<a href="mailto:christian@borgelt.net">Christian Borgelt</a>
+</address>
+</body>
+</html>

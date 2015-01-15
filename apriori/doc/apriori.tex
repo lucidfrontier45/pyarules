@@ -1,0 +1,112 @@
+\documentclass{article}
+\pagestyle{empty}
+\textwidth155mm
+\oddsidemargin2.1mm
+\topmargin-8mm
+\textheight225mm
+
+\def\rgtbox#1#2{\phantom{#1}\hbox to0pt{\hss#2}}
+\def\lftbox#1#2{\hbox to0pt{#2\hss}\phantom{#1}}
+
+\begin{document}
+
+\subsection*{The Apriori Algorithm for Finding Association Rules}
+
+\vskip5mm
+\begin{tabbing}
+00 \= 00 \= 00 \= 00 \= \hskip60mm \= \kill
+{\bf function} apriori $(I, T, s_{\min}, c_{\min}, k_{\max})$
+   \>\>\>\>\> $(*$ apriori algorithm for association rules $*)$ \\
+{\bf begin} \\
+\> $\lftbox{C_k}{$k$} := 1$;
+   \>\>\>\> $(*$ --- find frequent item sets $*)$ \\
+\> $C_k := \bigcup_{i \in I} \{i\};$
+   \>\>\>\> $(*$ start with single element sets $*)$ \\
+\> $\lftbox{C_k}{$F_k$} := \mbox{prune}(C_k, T, s_{\min})$;
+   \>\>\>\> $(*$ and determine the frequent ones $*)$ \\
+\> {\bf while} $F_k \neq \emptyset$
+   {\bf and}   $k \le k_{\max}$ {\bf do begin}
+   \>\>\>\>   $(*$ while there are frequent item sets $*)$ \\
+\> \> $C_{k+1} := \mbox{candidates}(F_k)$;
+   \>\>\>     $(*$ create item sets with one item more $*)$ \\
+\> \> $\lftbox{C_{k+1}}{$F_{k+1}$}
+               := \mbox{prune}(C_{k+1}, T, s_{\min})$;
+   \>\>\>     $(*$ and determine the frequent ones $*)$ \\
+\> \> $\lftbox{C_{k+1}}{$k$} := k+1$;
+   \>\>\>     $(*$ increment the item counter $*)$ \\
+\> {\bf end}; \\
+\> $R := \emptyset$;
+   \>\>\>\>   $(*$ --- generate association rules $*)$ \\
+\> {\bf forall} $f \in \bigcup_{j=2}^k F_j$ {\bf do begin}
+   \>\>\>\>   $(*$ traverse the frequent item sets $*)$ \\
+\> \> $\lftbox{H_m}{$m$} := 1$;
+   \>\>\>     $(*$ start with rule heads (consequents) $*)$ \\
+\> \> $H_m := \bigcup_{i \in f} \{i\}$;
+   \>\>\>     $(*$ that contain only one item $*)$ \\
+\> \> {\bf repeat}
+   \>\>\>     $(*$ traverse rule heads of increasing size $*)$ \\
+\> \> \> {\bf forall} $h \in H_m$ {\bf do}
+   \>\>       $(*$ traverse the possible rule heads $*)$ \\
+\> \> \> \> {\bf if} $\frac{s(f)}{s(f-h)} \ge c_{\min}$
+   \>         $(*$ if the confidence of the rule $*)$ \\
+\> \> \> \> {\bf then} $\lftbox{H_m}{$R$}
+                       := R \cup \{ [(f-h) \to h] \}$;
+   \>         $(*$ is high enough, add it to the result, $*)$ \\
+\> \> \> \> \lftbox{\bf then}{\bf else} $H_m := H_m - \{h\}$;
+   \>         $(*$ otherwise discard the rule head $*)$ \\
+\> \> \> $H_{m+1} := \mbox{candidates}(H_m)$;
+   \>\>       $(*$ create rule heads with one item more $*)$ \\
+\> \> \> $\lftbox{H_{m+1}}{$m$} := m+1$;
+   \>\>       $(*$ increment the head item counter $*)$ \\
+\> \> {\bf until} $H_m = \emptyset$ {\bf or} $m \ge |f|$;
+   \>\>\>     $(*$ until there are no more rule heads $*)$ \\
+\> {\bf end};
+   \>\>\>\>   $(*$ or the antecedent would become empty $*)$ \\
+\> {\bf return} $R$;
+   \>\>\>\>   $(*$ return the rules found $*)$ \\
+{\bf end} $(*$ apriori $*)$ \\
+\\
+{\bf function} candidates $(F_k)$
+   \>\>\>\>\> $(*$ generate candidates with $k+1$ items $*)$\\
+{\bf begin} \\
+\> $C := \emptyset$;
+   \>\>\>\>   $(*$ initialize the set of candidates $*)$ \\
+\> {\bf forall} $f_1, f_2 \in F_k$
+   \>\>\>\>   $(*$ traverse all pairs of frequent item sets $*)$ \\
+\> \lftbox{\bf forall}{\bf with} $f_1 = \{i_1,\ldots,i_{k-1},i_k\}$
+   \>\>\>\>   $(*$ that differ only in one item and $*)$ \\
+\> \lftbox{\bf forall}{\bf and}  $f_2 = \{i_1,\ldots,i_{k-1},i_k'\}$
+   \>\>\>\>   $(*$ are in a lexicographic order $*)$ \\
+\> \lftbox{\bf forall}{\bf and}  $i_k < i_k'$ {\bf do begin}
+   \>\>\>\>   $(*$ (the order is arbitrary, but fixed) $*)$ \\
+\> \> $f := f_1 \cup f_2 = \{i_1,\ldots,i_{k-1},i_k,i_k'\}$;
+   \>\>\>     $(*$ the union of these sets has $k+1$ items $*)$ \\
+\> \> {\bf if} $\;\forall i \in f:\; f -\{i\} \in F_k$
+   \>\>\>     $(*$ only if all $k$ element subsets are frequent, $*)$ \\
+\> \> {\bf then} $C := C \cup \{f\}$;
+   \>\>\>     $(*$ add the new item set to the candidates $*)$ \\
+\> {\bf end};
+   \>\>\>\>   $(*$ (otherwise it cannot be frequent) $*)$ \\
+\> {\bf return} $C$;
+   \>\>\>\>   $(*$ return the generated candidates $*)$ \\
+{\bf end} $(*$ candidates $*)$ \\
+\\
+{\bf function} prune $(C, T, s_{\min})$
+   \>\>\>\>\> $(*$ prune infrequent candidates $*)$ \\
+{\bf begin} \\
+\> {\bf forall} $c \in C$ {\bf do}
+   \>\>\>\>   $(*$ initialize the support counters $*)$ \\
+\> \> $s(c) := 0$;
+   \>\>\>     $(*$ of all candidates to be checked $*)$ \\
+\> {\bf forall} $t \in T$ {\bf do}
+   \>\>\>\>   $(*$ traverse the transactions $*)$ \\
+\> \> {\bf forall} $c \in C$ {\bf do}
+   \>\>\>     $(*$ traverse the candidates $*)$ \\
+\> \> \> {\bf if} $c \in t$
+   \>\>       $(*$ if the transaction contains the candidate, $*)$ \\
+\> \> \> {\bf then} $s(c) := s(c) +1$;
+   \>\>       $(*$ increment the support counter $*)$ \\
+{\bf end} $(*$ prune $*)$
+\end{tabbing}
+
+\end{document}
