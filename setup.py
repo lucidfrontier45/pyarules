@@ -100,7 +100,7 @@ setup(name='pyarules',
       author_email='lucidfrontier.45@gmail.com',
       platforms='Linux/Unix,Microsoft Windows',
       license='MIT License (Expat License)',
-      ext_modules=[Extension('pyarules/fim', sources, include_dirs=dirs,
+      ext_modules=[Extension('pyarules.fim', sources, include_dirs=dirs,
                              define_macros=macros)])
 
 remove('MANIFEST.in')
